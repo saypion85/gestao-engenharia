@@ -1,0 +1,27 @@
+# Aplica as migrações do banco e publica a função de usuários no Supabase.
+# Roda sozinho quando algo em supabase/ muda na branch main, ou manualmente (Actions > Publicar banco > Run workflow).
+name: Publicar banco
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/**"]
+  workflow_dispatch:
+concurrency: publicar-banco
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.119.0
+      - name: Conectar ao projeto
+        run: supabase link --project-ref "$PROJECT_REF"
+      - name: Aplicar migrações
+        run: supabase db push
+      - name: Publicar função de gestão de usuários
+        run: supabase functions deploy admin-usuarios --project-ref "$PROJECT_REF"

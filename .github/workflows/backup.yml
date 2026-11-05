@@ -1,0 +1,36 @@
+# Backup diário do banco (estrutura + dados, inclusive usuários).
+# Fica guardado por 30 dias em Actions > Backup diário > (execução) > Artifacts.
+# A consulta diária também mantém o projeto gratuito ativo (evita a pausa por 7 dias sem uso).
+name: Backup diário
+on:
+  schedule:
+    - cron: "23 6 * * *" # 03:23 em Brasília
+  workflow_dispatch:
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.119.0
+      - name: Exportar banco
+        run: |
+          set -euo pipefail
+          DIA=$(date -u +%Y-%m-%d)
+          mkdir -p backup
+          supabase db dump --db-url "$DB_URL" --role-only -f backup/roles.sql
+          supabase db dump --db-url "$DB_URL" -f backup/schema.sql
+          supabase db dump --db-url "$DB_URL" --data-only --use-copy \
+            -x storage.buckets_vectors -x storage.vector_indexes -x storage.buckets_analytics \
+            -x storage.iceberg_namespaces -x storage.iceberg_tables \
+            -f backup/dados.sql
+          echo "$DIA" > backup/DATA.txt
+          ls -la backup
+          test -s backup/dados.sql
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-banco-${{ github.run_number }}
+          path: backup/
+          retention-days: 30

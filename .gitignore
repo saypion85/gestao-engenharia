@@ -1,0 +1,10 @@
+node_modules/
+dados/
+.env
+.env.*
+!.env.example
+dist/
+supabase/.temp/
+supabase/.branches/
+test-results/
+playwright-report/

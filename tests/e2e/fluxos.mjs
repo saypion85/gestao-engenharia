@@ -1,0 +1,268 @@
+// Teste ponta a ponta dos fluxos principais no navegador (Supabase LOCAL + vite dev).
+// Uso: node tests/e2e/fluxos.mjs [pasta_screenshots]
+import { chromium, devices } from "playwright";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+
+const BASE = "http://127.0.0.1:5173";
+const OUT = process.argv[2] ?? "test-results";
+fs.mkdirSync(OUT, { recursive: true });
+const SENHA = "Teste@12345";
+const erros = [];
+const passo = (m) => console.log("✓", m);
+
+const browser = await chromium.launch();
+
+async function sessao(email, opts = {}) {
+  const ctx = await browser.newContext({ viewport: { width: 1366, height: 860 }, locale: "pt-BR", ...opts });
+  const page = await ctx.newPage();
+  page.on("console", (m) => m.type() === "error" && erros.push(`[${email}] ${m.text()}`));
+  page.on("pageerror", (e) => erros.push(`[${email}] ${e.message}`));
+  page.on("dialog", (d) => d.accept(d.type() === "prompt" ? "" : undefined));
+  await page.goto(BASE);
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha").fill(SENHA);
+  await page.getByRole("button", { name: "Entrar" }).click();
+  return { ctx, page };
+}
+
+// ---------- Login inválido ----------
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto(BASE);
+  await page.getByLabel("E-mail").fill("engenheiro@teste.local");
+  await page.getByLabel("Senha").fill("errada123");
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await page.getByText("E-mail ou senha incorretos.").waitFor();
+  await page.screenshot({ path: `${OUT}/01-login.png` });
+  passo("login com senha errada mostra mensagem clara");
+  await ctx.close();
+}
+
+// ---------- Engenheiro ----------
+const { page: eng } = await sessao("engenheiro@teste.local");
+await eng.getByRole("heading", { name: "Painel" }).waitFor();
+await eng.getByText("Onde agir").waitFor();
+await eng.waitForTimeout(800);
+await eng.screenshot({ path: `${OUT}/02-painel.png`, fullPage: true });
+passo("painel carrega");
+
+// indicador → lista filtrada com o mesmo número
+const ind = eng.locator(".indicador", { hasText: "Sem avaliação de prioridade" });
+const valorInd = Number(await ind.locator(".ind-valor").innerText());
+await ind.click();
+await eng.getByRole("heading", { name: "Demandas" }).waitFor();
+await eng.waitForSelector(".tabela tbody tr");
+const qtdLinhas = await eng.locator(".tabela tbody tr").count();
+assert.equal(qtdLinhas, valorInd, "número do indicador = registros na lista");
+passo(`indicador "Sem avaliação" (${valorInd}) abre a lista com os mesmos registros`);
+
+// busca
+await eng.getByRole("link", { name: "Demandas", exact: true }).click();
+await eng.waitForURL(`${BASE}/demandas`);
+await eng.getByLabel("Buscar").fill("drenagem");
+await eng.waitForTimeout(500);
+await eng.getByLabel("Situação").selectOption("todas");
+try {
+  await eng.waitForFunction(() => document.querySelectorAll(".tabela tbody tr").length >= 2 && location.search.includes("situacao=todas"), null, { timeout: 5000 });
+} catch (e) {
+  console.log("DEBUG", eng.url(), await eng.locator(".tabela tbody tr").count(), await eng.getByLabel("Buscar").inputValue());
+  await eng.screenshot({ path: `${OUT}/erro-busca.png` });
+  throw e;
+}
+await eng.screenshot({ path: `${OUT}/03-lista-busca.png` });
+passo("busca por texto funciona");
+
+// nova demanda
+await eng.goto(`${BASE}/demandas/nova`);
+await eng.getByPlaceholder("Ex.: Reforma do telhado do Armazém 30").fill("Teste E2E - Recuperação de parede do Armazém 8");
+await eng.getByRole("button", { name: "Cadastrar demanda" }).click();
+await eng.getByText("Avalie a prioridade").waitFor();
+passo("cadastro exige avaliação de prioridade");
+await eng.locator("label.campo", { hasText: "Local" }).locator("select").selectOption({ label: "Armazém 8" });
+await eng.locator("label.campo", { hasText: "Responsável" }).first().locator("select").selectOption({ label: "Luis Soares" });
+await eng.locator("label.campo", { hasText: "Prazo de conclusão" }).locator("input").fill("2026-12-15");
+await eng.locator("label.campo", { hasText: "Categoria principal" }).locator("select").selectOption("EST");
+await eng.getByRole("button", { name: /4\s*Provável/ }).click();
+await eng.getByLabel("Severidade Pessoas").selectOption("5");
+await eng.getByText("Pontuação (P × S)").waitFor();
+await eng.locator(".prioridade-resultado").getByText("Crítico").waitFor();
+await eng.screenshot({ path: `${OUT}/04-nova-demanda.png`, fullPage: true });
+await eng.getByRole("button", { name: "Cadastrar demanda" }).click();
+await eng.locator(".demanda-cabecalho").getByText("Teste E2E").waitFor();
+await eng.locator(".demanda-cabecalho .badge", { hasText: "Crítico" }).waitFor();
+const urlDemanda = eng.url();
+passo("demanda criada com classe Crítico e ranking");
+
+// atualização rápida
+await eng.getByLabel("Texto da atualização").fill("Vistoria realizada; risco confirmado. Área isolada.");
+await eng.locator(".atualizacao label.campo", { hasText: "Situação" }).locator("select").selectOption("em_andamento");
+await eng.locator(".atualizacao label.campo", { hasText: "Etapa" }).locator("select").selectOption("estudo_projeto");
+await eng.getByRole("button", { name: "Registrar" }).click();
+await eng.getByText("Atualização registrada.").waitFor();
+await eng.locator(".linha-badges .badge", { hasText: "Em andamento" }).waitFor();
+await eng.screenshot({ path: `${OUT}/05-demanda-resumo.png`, fullPage: true });
+passo("registrar andamento atualiza situação/etapa em uma ação");
+
+// histórico
+await eng.getByRole("tab", { name: "Histórico" }).click();
+await eng.getByText("Vistoria realizada").waitFor();
+await eng.getByLabel("Filtrar histórico").selectOption("todos");
+await eng.getByText(/Situação: Não iniciada → Em andamento/).waitFor();
+passo("histórico tem o registro manual e a mudança automática");
+
+// atividades
+await eng.getByRole("tab", { name: "Atividades" }).click();
+await eng.getByRole("button", { name: "+ Novo item" }).click();
+await eng.locator(".modal").getByRole("button", { name: "Pendência" }).click();
+await eng.locator(".modal label.campo", { hasText: "Descrição" }).locator("input").fill("Liberação da área pela Operação");
+await eng.locator(".modal label.campo", { hasText: "Prazo" }).locator("input").fill("2026-11-04");
+await eng.locator(".modal").getByText("Está impedindo o andamento").click();
+await eng.locator(".modal").getByPlaceholder("Ex.: área não liberada pela Operação").fill("Operação sem janela");
+await eng.locator(".modal").getByRole("button", { name: "Salvar" }).click();
+await eng.locator(".item", { hasText: "Liberação da área" }).getByText("Impedimento").waitFor();
+await eng.screenshot({ path: `${OUT}/06-atividades.png` });
+passo("pendência com impedimento e prazo vencido");
+
+// documento
+await eng.getByRole("tab", { name: "Documentos" }).click();
+fs.writeFileSync(`${OUT}/laudo.txt`, "Laudo de vistoria");
+await eng.locator(".area-envio input[type=file]").setInputFiles(`${OUT}/laudo.txt`);
+await eng.getByText("Arquivo enviado.").waitFor();
+await eng.locator(".docs").getByText("laudo.txt").waitFor();
+passo("upload de documento");
+
+// RDO equipe
+await eng.getByRole("tab", { name: "RDO" }).click();
+await eng.getByRole("button", { name: "+ Novo RDO" }).click();
+await eng.getByRole("heading", { name: "RDO — Relatório Diário de Obra" }).waitFor();
+await eng.getByRole("button", { name: "+ Adicionar função" }).click();
+await eng.getByLabel("Função").fill("Pedreiro");
+await eng.getByLabel("Atividades executadas").fill("Escoramento provisório da parede.");
+await eng.getByRole("button", { name: "+ Adicionar ocorrência" }).click();
+await eng.getByLabel("Ocorrência").fill("Chuva forte às 14h");
+await eng.getByRole("button", { name: "Finalizar RDO" }).click();
+await eng.getByText("RDO finalizado.").waitFor();
+await eng.screenshot({ path: `${OUT}/07-rdo-equipe.png`, fullPage: true });
+passo("RDO da equipe criado e finalizado");
+
+// Atividades globais
+await eng.getByRole("link", { name: "Atividades" }).click();
+await eng.getByRole("heading", { name: "Atividades em aberto" }).waitFor();
+await eng.getByText("Liberação da área pela Operação").waitFor();
+passo("página de atividades mostra itens da equipe");
+
+// ---------- Contratada ----------
+const { page: ctd } = await sessao("contratada@teste.local");
+await ctd.getByRole("heading", { name: "Minhas demandas" }).waitFor();
+await ctd.waitForSelector(".tabela tbody tr");
+const nCtd = await ctd.locator(".tabela tbody tr").count();
+assert.equal(nCtd, 2, "contratada vê só 2 demandas");
+assert.equal(await ctd.getByRole("link", { name: "Painel" }).count(), 0);
+await ctd.screenshot({ path: `${OUT}/08-contratada-lista.png` });
+await ctd.locator(".tabela tbody tr a").first().click();
+await ctd.locator(".demanda-cabecalho").waitFor();
+assert.equal(await ctd.getByRole("tab", { name: "Histórico" }).count(), 0, "contratada sem aba Histórico");
+assert.equal(await ctd.getByRole("tab", { name: "Custos" }).count(), 0, "contratada sem aba Custos");
+await ctd.getByRole("tab", { name: "RDO" }).click();
+await ctd.getByRole("button", { name: "+ Novo RDO" }).click();
+await ctd.getByText("Preenchido pela contratada").waitFor();
+await ctd.getByRole("button", { name: "+ Adicionar função" }).click();
+await ctd.getByLabel("Função").fill("Ajudante");
+await ctd.getByLabel("Atividades executadas").fill("Escavação da vala, 12 m.");
+await ctd.getByRole("button", { name: "+ Adicionar ocorrência" }).click();
+await ctd.getByLabel("Ocorrência").fill("Área não liberada pela Operação até 10h");
+await ctd.locator(".ocorrencia").getByText("Impedimento").click();
+await ctd.locator("label.area-envio input[type=file]").setInputFiles(`${OUT}/laudo.txt`);
+await ctd.waitForTimeout(1200);
+await ctd.getByRole("button", { name: "Enviar para a Triunfo" }).click();
+await ctd.getByText("RDO enviado para a Triunfo.").waitFor();
+assert.equal(await ctd.getByLabel("Apontamentos da Contratante").count(), 0, "contratada não edita apontamentos");
+const urlRdo = ctd.url();
+await ctd.screenshot({ path: `${OUT}/09-rdo-contratada.png`, fullPage: true });
+passo("contratada preenche e envia RDO; não vê histórico/custos nem edita apontamentos");
+
+// ---------- Engenheiro revisa ----------
+await eng.goto(urlRdo);
+await eng.getByLabel("Apontamentos da Contratante").fill("Instalar sinalização na vala antes de continuar.");
+await eng.getByRole("button", { name: "Revisar com ressalvas" }).click();
+await eng.getByText("Revisão registrada").waitFor();
+await eng.getByText(/Revisado por Luis Soares/).waitFor();
+passo("engenheiro aponta e revisa; RDO travado");
+await eng.goto(BASE);
+await eng.locator(".indicador", { hasText: "Com impedimento" }).waitFor();
+assert.ok(Number(await eng.locator(".indicador", { hasText: "Com impedimento" }).locator(".ind-valor").innerText()) >= 2);
+passo("impedimentos de atividade e de RDO aparecem no painel");
+
+await ctd.goto(urlRdo);
+await ctd.getByText("Instalar sinalização na vala").waitFor();
+await ctd.getByText("não pode mais ser alterado").waitFor();
+passo("contratada vê o apontamento e o RDO travado");
+
+// ---------- Consulta ----------
+const { page: con } = await sessao("consulta@teste.local");
+await con.getByRole("heading", { name: "Painel" }).waitFor();
+await con.goto(urlDemanda);
+await con.locator(".demanda-cabecalho").waitFor();
+assert.equal(await con.getByRole("button", { name: "Editar" }).count(), 0);
+assert.equal(await con.getByLabel("Texto da atualização").count(), 0);
+assert.equal(await con.getByRole("tab", { name: "Custos" }).count(), 0);
+passo("consulta: só leitura, sem custos");
+
+// ---------- Gestor ----------
+const { page: ges } = await sessao("gestor@teste.local");
+await ges.getByRole("heading", { name: "Painel" }).waitFor();
+await ges.getByText("Economia (Save)").waitFor();
+await ges.goto(`${BASE}/demandas?situacao=todas&q=central%20de%20residuos`);
+await ges.waitForSelector(".tabela tbody tr");
+await ges.locator(".tabela tbody tr a").first().click();
+await ges.getByRole("tab", { name: "Custos" }).click();
+await ges.getByText("visível só para o Gestor").waitFor();
+await ges.screenshot({ path: `${OUT}/10-custos-gestor.png`, fullPage: true });
+await ges.getByRole("link", { name: "Usuários" }).click();
+await ges.getByText("consulta@teste.local").waitFor();
+await ges.screenshot({ path: `${OUT}/11-usuarios.png` });
+passo("gestor vê custos, Save e gestão de usuários");
+
+// ---------- Celular ----------
+const cel = await browser.newContext({ ...devices["iPhone 13"], locale: "pt-BR" });
+const m = await cel.newPage();
+m.on("pageerror", (e) => erros.push(`[celular] ${e.message}`));
+await m.goto(BASE);
+await m.getByLabel("E-mail").fill("engenheiro@teste.local");
+await m.getByLabel("Senha").fill(SENHA);
+await m.getByRole("button", { name: "Entrar" }).click();
+await m.getByRole("heading", { name: "Painel" }).waitFor();
+await m.waitForTimeout(600);
+const largura = await m.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+assert.ok(largura[0] <= largura[1] + 1, `sem rolagem horizontal no celular (${largura})`);
+await m.screenshot({ path: `${OUT}/12-celular-painel.png` });
+await m.getByRole("button", { name: "Abrir menu" }).click();
+await m.getByRole("link", { name: "Demandas" }).click();
+await m.waitForSelector(".cartao-demanda");
+await m.screenshot({ path: `${OUT}/13-celular-lista.png` });
+await m.goto(urlDemanda);
+await m.locator(".demanda-cabecalho").waitFor();
+const largura2 = await m.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+assert.ok(largura2[0] <= largura2[1] + 1, `ficha sem rolagem horizontal (${largura2})`);
+await m.screenshot({ path: `${OUT}/14-celular-demanda.png`, fullPage: true });
+await m.goto(urlRdo);
+await m.getByRole("heading", { name: "RDO — Relatório Diário de Obra" }).waitFor();
+await m.screenshot({ path: `${OUT}/15-celular-rdo.png`, fullPage: true });
+passo("celular: painel, lista, ficha e RDO sem rolagem horizontal");
+
+// PDF do RDO
+await eng.goto(urlRdo);
+await eng.getByRole("heading", { name: "RDO — Relatório Diário de Obra" }).waitFor();
+await eng.waitForTimeout(500);
+await eng.pdf({ path: `${OUT}/16-rdo.pdf`, format: "A4", printBackground: true });
+passo("RDO exporta para PDF");
+
+await browser.close();
+const relevantes = erros.filter((e) => !/favicon|Failed to load resource.*(400|404)/.test(e));
+if (relevantes.length) {
+  console.log("\nErros no console:\n" + relevantes.join("\n"));
+  process.exit(1);
+}
+console.log("\nTodos os fluxos passaram, sem erros no console.");
