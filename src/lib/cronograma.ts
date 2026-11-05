@@ -64,15 +64,44 @@ export function desvioDias(i: ItemCronograma, hoje: string, uteis = false): numb
 }
 
 /** Itens iniciais do cronograma a partir do fluxo da forma de execução. */
+/** Itens complementares do modelo, que não são etapas da situação da demanda. */
+export const EXTRAS_CONTRATADA = [
+  { nome: "Mobilização", depoisDe: "ordem_servico" as Etapa },
+  { nome: "Medição e pagamento", depoisDe: "execucao" as Etapa },
+];
+
+/** Modelo do cronograma: etapas do fluxo e, no serviço contratado, Mobilização (após a OS) e Medição e pagamento (após a execução). */
+export function modeloCronograma(forma: Forma): { etapa: Etapa | null; nome: string; ordem: number }[] {
+  const etapas: Etapa[] = FLUXO[forma].filter((e) => e !== "concluida");
+  const itens = etapas.map((e, k) => ({ etapa: e as Etapa | null, nome: ETAPAS[e], ordem: k * 10 }));
+  if (forma === "contratada") {
+    for (const x of EXTRAS_CONTRATADA) {
+      const base = itens.find((i) => i.etapa === x.depoisDe)!;
+      itens.push({ etapa: null, nome: x.nome, ordem: base.ordem + 5 });
+    }
+  }
+  return itens.sort((a, b) => a.ordem - b.ordem);
+}
+
+/** Itens do modelo que ainda não existem no cronograma (por etapa, ou pelo nome no caso dos complementares). */
+export function itensFaltantes(existentes: Pick<ItemCronograma, "etapa" | "nome">[], demanda: { id: number; forma_execucao: Forma }): ItemCronograma[] {
+  const norm = (s: string) => s.trim().toLowerCase();
+  return modeloCronograma(demanda.forma_execucao)
+    .filter((m) => (m.etapa ? !existentes.some((e) => e.etapa === m.etapa) : !existentes.some((e) => !e.etapa && norm(e.nome) === norm(m.nome))))
+    .map((m) => ({ demanda_id: demanda.id, etapa: m.etapa, nome: m.nome, ordem: m.ordem, inicio_previsto: null, fim_previsto: null, inicio_real: null, fim_real: null, observacao: null }));
+}
+
+/** Itens iniciais do cronograma a partir do modelo da forma de execução. */
 export function itensIniciais(demanda: { id: number; forma_execucao: Forma; etapa: Etapa; recebida_em: string | null; inicio: string | null; fim: string | null }, hoje: string): ItemCronograma[] {
-  const etapas: Etapa[] = FLUXO[demanda.forma_execucao].filter((e) => e !== "concluida");
-  const atual = etapas.indexOf(demanda.etapa);
-  return etapas.map((e, ordem) => {
-    const item: ItemCronograma = { demanda_id: demanda.id, etapa: e, nome: ETAPAS[e], ordem: ordem * 10, inicio_previsto: null, fim_previsto: null, inicio_real: null, fim_real: null, observacao: null };
+  const fluxo = FLUXO[demanda.forma_execucao];
+  const atual = fluxo.indexOf(demanda.etapa);
+  return modeloCronograma(demanda.forma_execucao).map((m) => {
+    const item: ItemCronograma = { demanda_id: demanda.id, etapa: m.etapa, nome: m.nome, ordem: m.ordem, inicio_previsto: null, fim_previsto: null, inicio_real: null, fim_real: null, observacao: null };
+    const e = m.etapa;
     if (e === "recebida" && demanda.recebida_em) { item.inicio_real = demanda.recebida_em; item.fim_real = demanda.recebida_em; }
     if (e === "execucao") { item.inicio_real = demanda.inicio; item.fim_real = demanda.fim; }
-    if (e === demanda.etapa && !item.inicio_real && e !== "recebida") item.inicio_real = hoje;
-    if (atual >= 0 && ordem < atual && e === "recebida" && !item.fim_real && item.inicio_real) item.fim_real = item.inicio_real;
+    if (e && e === demanda.etapa && !item.inicio_real && e !== "recebida") item.inicio_real = hoje;
+    if (e === "recebida" && atual > 0 && !item.fim_real && item.inicio_real) item.fim_real = item.inicio_real;
     return item;
   });
 }
@@ -80,7 +109,9 @@ export function itensIniciais(demanda: { id: number; forma_execucao: Forma; etap
 /** Período que cobre todas as datas (com folga), em ISO. */
 export function periodo(datas: (string | null)[], hoje: string, folgaDias = 10): [string, string] {
   const v = [...datas.filter((d): d is string => !!d), hoje].map(dia);
-  const ini = Math.min(...v) - folgaDias, fim = Math.max(...v) + folgaDias;
+  // folga proporcional (≈8% de cada lado) para caber as datas escritas nas pontas das barras
+  const folga = Math.max(folgaDias, Math.round((Math.max(...v) - Math.min(...v)) * 0.08));
+  const ini = Math.min(...v) - folga, fim = Math.max(...v) + folga;
   const iso = (n: number) => new Date(n * 86400000).toISOString().slice(0, 10);
   return [iso(ini), iso(Math.max(fim, ini + 30))];
 }

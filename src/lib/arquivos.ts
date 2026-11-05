@@ -30,6 +30,7 @@ export interface NovoDocumento {
   descricao?: string | null;
   rdoId?: number | null;
   atividadeId?: number | null;
+  medicaoId?: number | null;
   visivelContratada?: boolean;
 }
 
@@ -39,7 +40,7 @@ export async function enviarDocumento(n: NovoDocumento) {
   const up = await supabase.storage.from("documentos").upload(caminho, arq, { contentType: arq.type || "application/octet-stream" });
   if (up.error) throw up.error;
   const { error } = await supabase.from("documentos").insert({
-    demanda_id: n.demandaId, rdo_id: n.rdoId ?? null, atividade_id: n.atividadeId ?? null,
+    demanda_id: n.demandaId, rdo_id: n.rdoId ?? null, atividade_id: n.atividadeId ?? null, medicao_id: n.medicaoId ?? null,
     categoria: n.categoria, nome: n.arquivo.name, descricao: n.descricao ?? null,
     caminho, tamanho: arq.size, mime: arq.type, visivel_contratada: n.visivelContratada ?? false,
   });

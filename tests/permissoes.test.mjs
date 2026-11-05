@@ -323,3 +323,51 @@ test("reuniões: pauta, decisões, plano de ação, encerramento com ata e trava
   const { data: final } = await c.engenheiro.from("reunioes").select("status, ata, encerrada_por_nome").eq("id", reu.id).single();
   assert.deepEqual(final, { status: "realizada", ata: { teste: 2 }, encerrada_por_nome: "Luis Soares" });
 });
+
+test("medição: só Gestor e Engenheiro; limites da OC; aprovação trava; pagamento registra", async () => {
+  // OC por valor
+  const { data: oc, error } = await c.engenheiro.from("ordens_compra").insert({ demanda_id: demOutra, numero: "4500001", fornecedor: "Construtora X", valor_total: 1000 }).select().single();
+  assert.ifError(error);
+  for (const p of ["consulta", "contratada"]) {
+    const { data } = await c[p].from("ordens_compra").select("id");
+    assert.equal(data.length, 0, `${p} não vê valores`);
+  }
+  const { data: m1 } = await c.engenheiro.from("medicoes").insert({ oc_id: oc.id, valor_informado: 600 }).select().single();
+  assert.equal(m1.numero, 1, "numeração automática");
+  const estouro = await c.engenheiro.from("medicoes").insert({ oc_id: oc.id, valor_informado: 500 });
+  assert.match(estouro.error?.message ?? "", /passaria o valor da OC/);
+  const { data: ap } = await c.engenheiro.from("medicoes").update({ status: "aprovada" }).eq("id", m1.id).select().single();
+  assert.equal(ap.aprovada_por_nome, "Luis Soares");
+  const mexe = await c.engenheiro.from("medicoes").update({ valor_informado: 10 }).eq("id", m1.id);
+  assert.match(mexe.error?.message ?? "", /aprovada/);
+  const { data: pg } = await c.gestor.from("medicoes").update({ status: "paga", nota_fiscal: "NF 123" }).eq("id", m1.id).select().single();
+  assert.ok(pg.data_pagamento);
+  assert.equal(pg.pagamento_por_nome, "Gustavo Sipião");
+  const { data: res } = await c.engenheiro.from("v_ordens_compra").select("medido, aprovado, pago").eq("id", oc.id).single();
+  assert.deepEqual([Number(res.medido), Number(res.aprovado), Number(res.pago)], [600, 600, 600]);
+
+  // OC com planilha de itens
+  const { data: oc2 } = await c.engenheiro.from("ordens_compra").insert({ demanda_id: demOutra, numero: "4500002", fornecedor: "Y" }).select().single();
+  const { data: it } = await c.engenheiro.from("oc_itens").insert({ oc_id: oc2.id, descricao: "Alvenaria", unidade: "m²", quantidade: 10, valor_unitario: 100 }).select().single();
+  const { data: oc2b } = await c.engenheiro.from("ordens_compra").select("valor_total").eq("id", oc2.id).single();
+  assert.equal(Number(oc2b.valor_total), 1000, "valor da OC = soma dos itens");
+  const { data: ma } = await c.engenheiro.from("medicoes").insert({ oc_id: oc2.id }).select().single();
+  assert.ifError((await c.engenheiro.from("medicao_itens").insert({ medicao_id: ma.id, oc_item_id: it.id, quantidade: 6 })).error);
+  const { data: mb } = await c.engenheiro.from("medicoes").insert({ oc_id: oc2.id }).select().single();
+  const passa = await c.engenheiro.from("medicao_itens").insert({ medicao_id: mb.id, oc_item_id: it.id, quantidade: 5 });
+  assert.match(passa.error?.message ?? "", /passaria a contratada/);
+  const { data: vm } = await c.engenheiro.from("v_medicoes").select("valor").eq("id", ma.id).single();
+  assert.equal(Number(vm.valor), 600);
+  const apaga = await c.engenheiro.from("oc_itens").delete().eq("id", it.id);
+  assert.ok(apaga.error, "não apaga item já medido");
+  await c.engenheiro.from("medicoes").update({ status: "aprovada" }).eq("id", ma.id);
+  const travado = await c.engenheiro.from("medicao_itens").update({ quantidade: 1 }).eq("medicao_id", ma.id);
+  assert.match(travado.error?.message ?? "", /em elaboração/);
+
+  // documento de medição não aparece para quem não vê valores
+  const caminho = `${demOutra}/${crypto.randomUUID()}-nf.txt`;
+  await c.engenheiro.storage.from("documentos").upload(caminho, new Blob(["nf"], { type: "text/plain" }));
+  const { data: doc } = await c.engenheiro.from("documentos").insert({ demanda_id: demOutra, nome: "nf.txt", caminho, categoria: "nota_fiscal", medicao_id: m1.id }).select().single();
+  const { data: docCons } = await c.consulta.from("documentos").select("id").eq("id", doc.id);
+  assert.equal(docCons.length, 0, "consulta não vê NF da medição");
+});

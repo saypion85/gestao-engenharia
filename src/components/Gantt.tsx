@@ -74,10 +74,12 @@ export default function Gantt({ linhas, periodo, aoClicar, prazo, rotuloColuna =
                 {hojeDentro && <span className="gantt-hoje" style={{ left: `${x(hoje)}%` }} />}
                 {prazoDentro && <span className="gantt-prazo" style={{ left: `${x(prazo!)}%` }} />}
                 {l.previsto && <span className="gantt-prev" style={{ left: `${x(l.previsto[0])}%`, width: `${larg(l.previsto[0], l.previsto[1])}%` }} />}
+                {l.previsto && <Datas ini={l.previsto[0]} fim={l.previsto[1]} x={x} larg={larg} classe="gantt-datas-prev" />}
                 {l.realizado && fimReal && (
                   <span className={`gantt-real tom-${l.tom}${l.realizado[1] ? "" : " aberto"}`}
                     style={{ left: `${x(l.realizado[0])}%`, width: `${larg(l.realizado[0], fimReal)}%` }} />
                 )}
+                {l.realizado && fimReal && <Datas ini={l.realizado[0]} fim={l.realizado[1]} x={x} larg={larg} classe="gantt-datas-real" />}
                 {l.marco && l.marco.data >= ini && l.marco.data <= fim && (
                   <span className="gantt-marco" style={{ left: `${x(l.marco.data)}%` }} title={`${l.marco.rotulo}: ${fmtData(l.marco.data)}`} aria-label={l.marco.rotulo}>◆</span>
                 )}
@@ -87,6 +89,21 @@ export default function Gantt({ linhas, periodo, aoClicar, prazo, rotuloColuna =
         })}
       </div>
     </div>
+  );
+}
+
+const curta = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+
+/** Datas curtas (dd/mm) encostadas no início e no fim da barra; fim vazio = em andamento. */
+function Datas({ ini, fim, x, larg, classe }: { ini: string; fim: string | null; x: (d: string) => number; larg: (a: string, b: string) => number; classe: string }) {
+  const esq = x(ini);
+  const dir = fim ? esq + larg(ini, fim) : null;
+  const mesmoDia = fim === ini;
+  return (
+    <>
+      <span className={`gantt-data inicio ${classe}`} style={{ right: `${100 - esq}%` }}>{curta(ini)}</span>
+      {fim && !mesmoDia && dir !== null && <span className={`gantt-data fim ${classe}`} style={{ left: `${dir}%` }}>{curta(fim)}</span>}
+    </>
   );
 }
 

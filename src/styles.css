@@ -569,6 +569,10 @@ details.dados summary { cursor: pointer; color: var(--texto-sutil); }
 .celula-preds select { min-height: 32px !important; padding: 3px 6px !important; font-size: 0.75rem; width: auto; }
 .calculado { white-space: nowrap; }
 .calculado small { color: var(--texto-sutil); display: block; font-size: 0.68rem; }
+.gantt-data { position: absolute; font-size: 0.66rem; line-height: 1; color: var(--texto-sutil); white-space: nowrap; padding: 0 3px; font-variant-numeric: tabular-nums; z-index: 2; pointer-events: none; }
+.gantt-data.gantt-datas-prev { top: 10px; }
+.gantt-data.gantt-datas-real { top: 24px; color: var(--trl-texto); font-weight: 600; }
+.gantt-trilho { overflow: hidden; }
 .gantt-grade { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--trl-cinza-100); }
 .gantt-hoje { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--trl-vermelho); opacity: 0.7; z-index: 2; }
 .gantt-prev { position: absolute; top: 9px; height: 12px; border: 2px solid var(--trl-cinza-400); border-radius: 4px; background: color-mix(in srgb, var(--trl-cinza-400) 18%, transparent); }
@@ -665,6 +669,34 @@ details.cartao summary { cursor: pointer; }
   .lista-sugestoes li { flex-direction: column; align-items: flex-start; }
 }
 
+/* ---------- Medição ---------- */
+.barra-medicao { position: relative; height: 12px; background: var(--trl-cinza-100); border-radius: 6px; overflow: hidden; margin: 6px 0; }
+.barra-medicao span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; }
+.bm-medido { background: var(--trl-cinza-400); }
+.bm-pago { background: var(--trl-texto); }
+.legenda .leg-medido { background: var(--trl-cinza-400); }
+.legenda .leg-pago { background: var(--trl-texto); }
+.oc { border-left: 4px solid var(--trl-texto); }
+.oc-cancelada { opacity: 0.6; border-left-color: var(--trl-cinza-300); }
+.oc-vigente { background: var(--trl-status-ok-15); color: var(--trl-status-ok); }
+.oc-encerrada { background: var(--trl-cinza-100); color: var(--trl-cinza-800); }
+.oc-cancelada .badge, .badge.oc-cancelada { background: var(--trl-cinza-100); color: var(--trl-cinza-600); }
+.med-em_elaboracao { background: var(--trl-branco); border: 1px dashed var(--trl-cinza-400); color: var(--trl-cinza-600); }
+.med-aprovada { background: var(--trl-status-atencao-15); color: var(--trl-status-atencao); }
+.med-paga { background: var(--trl-status-ok-15); color: var(--trl-status-ok); }
+.med-cancelada { background: var(--trl-cinza-100); color: var(--trl-cinza-600); text-decoration: line-through; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tabela-medicao td, .tabela-medicao th { vertical-align: middle; }
+.tabela-medicao .linha-erro td { background: var(--trl-vermelho-15); }
+.pagamento { background: var(--trl-cinza-50); padding: 10px; border-radius: 6px; }
+.tabela-boletim th, .tabela-boletim td { font-size: 0.75rem; padding: 5px 6px; text-align: center; }
+.tabela-boletim td:first-child { text-align: left; }
+.totais-boletim { max-width: 460px; margin: 12px 0 0 auto; }
+.totais-boletim th { text-align: left; text-transform: none; letter-spacing: 0; font-size: 0.8125rem; background: none; }
+.destaque-linha th, .destaque-linha td { font-weight: 700; font-size: 1rem !important; border-top: 2px solid var(--trl-texto); }
+.assinaturas-boletim { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 64px; }
+.assinaturas-boletim div { border-top: 1px solid var(--trl-texto); padding-top: 4px; text-align: center; font-size: 0.8125rem; }
+
 /* ---------- Celular / tablet ---------- */
 @media (max-width: 900px) {
   .grade-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -726,6 +758,8 @@ details.cartao summary { cursor: pointer; }
   .assinaturas div { border-top: 1px solid #000; padding-top: 4px; text-align: center; font-size: 10pt; }
   .rdo-cabecalho { border-bottom: 2px solid var(--trl-vermelho); padding-bottom: 8px; }
   .ata-doc { border: 0; padding: 0; }
+  @page boletim { size: A4 landscape; }
+  .boletim .tabela-boletim th, .boletim .tabela-boletim td { font-size: 8pt; padding: 3px 4px; }
   .ata-doc h2 { break-after: avoid; }
   .ata-tabela tr { break-inside: avoid; }
   .aviso { border: 1px solid #ccc; }

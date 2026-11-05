@@ -12,12 +12,13 @@ import HistoricoAba from "../components/demanda/HistoricoAba";
 import DocumentosAba from "../components/demanda/DocumentosAba";
 import RdosAba from "../components/demanda/RdosAba";
 import CronogramaAba from "../components/demanda/CronogramaAba";
+import MedicaoAba from "../components/demanda/MedicaoAba";
 
-type Aba = "resumo" | "atividades" | "cronograma" | "contratacao" | "custos" | "historico" | "documentos" | "rdo";
+type Aba = "resumo" | "atividades" | "cronograma" | "medicao" | "contratacao" | "custos" | "historico" | "documentos" | "rdo";
 
 export default function DemandaDetalhe() {
   const { id } = useParams();
-  const { eGestor, eContratada } = useAuth();
+  const { eGestor, eContratada, podeEditar } = useAuth();
   const [params, setParams] = useSearchParams();
   const [d, setD] = useState<DemandaLinha | null>(null);
   const [erro, setErro] = useState("");
@@ -39,6 +40,7 @@ export default function DemandaDetalhe() {
     { id: "atividades", nome: "Atividades", mostrar: true },
     { id: "cronograma", nome: "Cronograma", mostrar: true },
     { id: "contratacao", nome: "Contratação", mostrar: !eContratada && d.forma_execucao === "contratada" },
+    { id: "medicao", nome: "Medição", mostrar: podeEditar },
     { id: "custos", nome: "Custos", mostrar: eGestor },
     { id: "historico", nome: "Histórico", mostrar: !eContratada },
     { id: "documentos", nome: "Documentos", mostrar: true },
@@ -76,6 +78,7 @@ export default function DemandaDetalhe() {
         {aba === "atividades" && <AtividadesAba demanda={d} />}
         {aba === "cronograma" && <CronogramaAba d={d} />}
         {aba === "contratacao" && <ContratacaoAba d={d} recarregar={recarregar} />}
+        {aba === "medicao" && <MedicaoAba d={d} />}
         {aba === "custos" && <CustosAba d={d} />}
         {aba === "historico" && <HistoricoAba d={d} recarregar={recarregar} />}
         {aba === "documentos" && <DocumentosAba demandaId={d.id} />}

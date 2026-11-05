@@ -4,7 +4,7 @@ import { useAuth } from "../../lib/auth";
 import { FLUXO, fmtData, hojeISO } from "../../lib/dominio";
 import type { DemandaLinha } from "../../lib/filtros";
 import {
-  SITUACAO_ITEM, calcularDatas, desvioDias, duracaoEntre, itensIniciais, periodo, situacaoItem,
+  SITUACAO_ITEM, calcularDatas, desvioDias, duracaoEntre, itensFaltantes, itensIniciais, periodo, situacaoItem,
   type Dependencia, type ItemCronograma,
 } from "../../lib/cronograma";
 import Gantt, { LegendaGantt, type LinhaGantt } from "../Gantt";
@@ -241,6 +241,13 @@ export default function CronogramaAba({ d }: { d: DemandaLinha }) {
     );
   }
 
+  const faltantes = itensFaltantes(itens, d);
+  async function completar() {
+    const { error } = await supabase.from("cronograma").insert(faltantes);
+    if (error) return notificar(mensagemErro(error), "erro");
+    notificar(`${faltantes.length} etapa(s) incluída(s): ${faltantes.map((f) => f.nome).join(", ")}.`);
+    carregar();
+  }
   const op = { uteis, deps, itens };
   const linhas = itens.map((i) => linhaGantt(i, d, hoje, op));
   const datas = itens.flatMap((i) => [i.inicio_previsto, i.fim_previsto, i.inicio_real, i.fim_real]).concat(d.prazo_conclusao);
@@ -254,7 +261,10 @@ export default function CronogramaAba({ d }: { d: DemandaLinha }) {
     <section className="cartao">
       <div className="linha linha-entre">
         <h2>Cronograma <Ajuda>Linha do tempo das etapas: contorno = previsto; barra cheia = realizado. Em vermelho, o que está atrasado em relação ao previsto.</Ajuda></h2>
-        {podeEditar && <button className="btn" onClick={() => abrirEdicao(itens, deps, uteis)}>Editar cronograma</button>}
+        <span className="linha">
+          {podeEditar && faltantes.length > 0 && <button className="btn" onClick={completar} title={faltantes.map((f) => f.nome).join(", ")}>+ Incluir etapas que faltam ({faltantes.length})</button>}
+          {podeEditar && <button className="btn" onClick={() => abrirEdicao(itens, deps, uteis)}>Editar cronograma</button>}
+        </span>
       </div>
       <div className="resumo-numeros">
         <div><span className="sutil pequeno">Calendário</span><strong>{uteis ? "Dias úteis" : "Dias corridos"}</strong><span className="sutil pequeno">{uteis ? "sem sábados e domingos" : "conta fins de semana"}</span></div>

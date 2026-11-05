@@ -36,6 +36,8 @@ function Dinheiro({ valor, mudar }: { valor: number | null; mudar: (n: number | 
 export default function CustosAba({ d }: { d: DemandaLinha }) {
   const [c, setC] = useState<Custos | null>(null);
   const [existe, setExiste] = useState(false);
+  const [versao, setVersao] = useState(0);
+  const [med, setMed] = useState<{ medido: number; pago: number; ocs: number } | null>(null);
   const [erro, setErro] = useState("");
 
   async function carregar() {
@@ -45,6 +47,12 @@ export default function CustosAba({ d }: { d: DemandaLinha }) {
     setC((data as Custos) ?? VAZIO);
   }
   useEffect(() => { carregar(); }, [d.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    supabase.from("v_ordens_compra").select("medido, pago, situacao").eq("demanda_id", d.id).then(({ data }) => {
+      const v = (data ?? []).filter((o) => o.situacao !== "cancelada");
+      setMed(v.length ? { medido: v.reduce((s, o) => s + Number(o.medido), 0), pago: v.reduce((s, o) => s + Number(o.pago), 0), ocs: v.length } : null);
+    });
+  }, [d.id]);
 
   async function salvar(e: FormEvent) {
     e.preventDefault();
@@ -73,13 +81,19 @@ export default function CustosAba({ d }: { d: DemandaLinha }) {
         <div><span className="sutil pequeno">Orçado externo (referência)</span><strong>{fmtMoeda(c.orcado_externo)}</strong></div>
         <div><span className="sutil pequeno">Save (economia)</span><strong className={save !== null && save < 0 ? "texto-critico" : ""}>{save === null ? "—" : fmtMoeda(save)}</strong></div>
       </div>
+      {med && (
+        <Aviso tipo="info">
+          Medições ({med.ocs} OC): medido <strong>{fmtMoeda(med.medido)}</strong> · pago <strong>{fmtMoeda(med.pago)}</strong>.{" "}
+          {Number(c.custo_terceirizados ?? 0) !== med.pago && <button type="button" className="btn-link" onClick={() => { mudar({ custo_terceirizados: med.pago }); setVersao((x) => x + 1); }}>Usar o valor pago como “realizado com terceiros”</button>}
+        </Aviso>
+      )}
       <p className="sutil pequeno">Save = Orçado externo − custo realizado total (terceiros + execução própria + mão de obra própria). Só é calculado quando o orçado externo é informado.</p>
       <div className="grade-2">
         <Campo rotulo="Orçado externo" ajuda="Quanto custaria se fosse feito com mão de obra externa. Serve de referência para calcular a economia.">
           <Dinheiro valor={c.orcado_externo} mudar={(n) => mudar({ orcado_externo: n })} />
         </Campo>
         <Campo rotulo="Custo realizado com terceiros">
-          <Dinheiro valor={c.custo_terceirizados} mudar={(n) => mudar({ custo_terceirizados: n })} />
+          <Dinheiro key={`terc${versao}`} valor={c.custo_terceirizados} mudar={(n) => mudar({ custo_terceirizados: n })} />
         </Campo>
         <Campo rotulo="Custo da execução própria" ajuda="Materiais, locações e serviços de apoio quando a execução é feita pela equipe Triunfo.">
           <Dinheiro valor={c.custo_execucao_propria} mudar={(n) => mudar({ custo_execucao_propria: n })} />

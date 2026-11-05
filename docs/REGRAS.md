@@ -67,6 +67,28 @@ Ciclo: Rascunho → Enviado → Revisado (sem/com ressalvas). Revisado = travado
 - O **Resumo** da demanda mostra os 3 últimos andamentos e o botão "Registrar andamento", que leva ao Histórico.
 - A antiga aba Comentários foi retirada. Comentários já existentes foram copiados para o histórico com autor e data originais; os marcados como importantes viraram "Decisão".
 
+## Medição (aba da demanda — Gestor e Engenheiro)
+
+- **Quem vê:** os valores da medição aparecem só para Gestor e Engenheiro. Consulta e contratada não veem a aba, nem os anexos de medição.
+- **Ordem de Compra (OC):** número (único na demanda), fornecedor (do cadastro de empresas ou digitado), data de emissão, objeto e valor. Situação: vigente, encerrada ou cancelada; a cancelada não entra nos totais.
+- **Planilha da OC (opcional):** itens com unidade, quantidade e preço unitário. Com planilha, o valor da OC passa a ser a soma dos itens e a medição é feita por quantidade. Sem planilha, a medição é lançada por valor. Item que já foi medido não pode ser excluído.
+- **Medição:** numerada automaticamente por OC, com período, data, entregas realizadas e quantidade medida por item (ou valor).
+  - Cada medição mostra o medido antes, o desta medição, o acumulado e o saldo, por item e no total.
+  - **Limites:** a quantidade acumulada de um item não passa a contratada, e o valor acumulado não passa o valor da OC. Reativar uma medição cancelada segue a mesma regra.
+- **Ciclo:** Em elaboração → **Aprovada** (grava quem aprovou e quando; o conteúdo fica travado) → **Paga** (nota fiscal, data e quem registrou).
+  - Uma medição aprovada pode voltar para elaboração.
+  - O Gestor pode desfazer um pagamento.
+  - Cancelada: deixa de contar no medido.
+- **Totais da demanda:** valor contratado, medido, aprovado a pagar, pago e saldo a medir, com barra de % medido e % pago.
+- **Boletim de Medição:** página para imprimir ou salvar em PDF, com a planilha (contratado, anterior, nesta medição, acumulado e saldo), os totais e espaço para assinatura do fiscal Triunfo e do fornecedor.
+- **Anexos:** NF, boletim assinado e fotos, ligados à medição.
+- **Custos (Gestor):** a aba Custos mostra o medido e o pago nas medições, com um botão para usar o valor pago como "realizado com terceiros".
+
+## RDO — efetivo e segurança
+
+- **Efetivo:** uma linha por pessoa, com Nome, Função e Vínculo (próprio/terceiro). O total é a contagem de linhas. RDOs antigos, lançados com quantidade, continuam somando corretamente.
+- **Segurança:** DDS realizado, PT emitida e **AST realizada** (Análise de Segurança da Tarefa), cada um com Sim/Não.
+
 ## Reuniões
 
 Menu **Reuniões**, com três abas: Reuniões, Decisões e Plano de ação.
@@ -107,7 +129,7 @@ Menu **Reuniões**, com três abas: Reuniões, Decisões e Plano de ação.
 
 ## Cronograma
 
-- **Na demanda (aba Cronograma):** "Criar cronograma" gera os itens com as etapas do fluxo da forma de execução. As datas já conhecidas entram como realizadas: data de recebimento e início/fim da execução. É possível incluir itens personalizados, como mobilização ou entrega de material.
+- **Na demanda (aba Cronograma):** "Criar cronograma" gera os itens com as etapas do fluxo da forma de execução. No serviço contratado, o modelo inclui também **Mobilização** (após a Ordem de Serviço) e **Medição e pagamento** (após a Execução). Em cronogramas já existentes, o botão **"Incluir etapas que faltam"** completa o modelo sem mexer no que já foi lançado. As datas já conhecidas entram como realizadas: data de recebimento e início/fim da execução. É possível incluir itens personalizados, como mobilização ou entrega de material.
 - Cada item tem **duração**, **início e fim previstos** e **início e fim realizados**.
 - **Calendário (por demanda):** "Contar fins de semana nos prazos?"
   - **Sim, dias corridos:** sábados e domingos contam na duração e nas folgas.
@@ -136,6 +158,7 @@ Menu **Reuniões**, com três abas: Reuniões, Decisões e Plano de ação.
 | Sem previsão | Sem datas previstas |
 
 - **Desvio** = dias entre o fim previsto e o fim realizado (ou hoje, se ainda aberta e já vencida). Em demandas com dias úteis, o desvio também é contado em dias úteis.
+- As datas de início e fim (dd/mm) aparecem nas pontas de cada barra, tanto do previsto quanto do realizado.
 - O gráfico mostra o previsto (contorno), o realizado (barra cheia; listrada quando ainda em andamento), a linha de hoje e a linha tracejada do prazo de conclusão. Há um aviso quando o término previsto passa do prazo de conclusão.
 - **Menu Cronograma:** uma linha por demanda. O previsto vai do primeiro início previsto ao último fim previsto; o realizado, do primeiro início realizado até o último fim, ou até hoje se ainda estiver aberto. Demandas com alguma etapa atrasada ficam em vermelho e aparecem primeiro. A página também lista as demandas que ainda não têm cronograma.
 - **Permissões:** Gestor e Engenheiro editam; equipe interna e contratada (só nas demandas da própria empresa) visualizam.

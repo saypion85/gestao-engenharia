@@ -161,13 +161,16 @@ await eng.getByLabel("Fim previsto de Execução").and(eng.locator('[value="2026
 await eng.getByLabel("Duração de Estudo / Projeto").fill("6");
 await eng.getByLabel("Fim previsto de Execução").and(eng.locator('[value="2026-12-07"]')).waitFor();
 await eng.getByRole("button", { name: /Item personalizado/ }).click();
-await eng.getByLabel("Nome do item").fill("Mobilização da contratada");
+await eng.getByLabel("Nome do item").last().fill("Mobilização da contratada");
 await eng.getByRole("button", { name: "Salvar cronograma" }).click();
 await eng.getByText("Cronograma salvo.").waitFor();
 await eng.locator(".resumo-numeros").getByText("Dias úteis").waitFor();
 await eng.locator(".gantt-linha", { hasText: "Execução" }).getByText(/após Memorial Descritivo \+2d úteis/).waitFor();
 await eng.locator(".gantt-linha", { hasText: "Mobilização da contratada" }).waitFor();
 await eng.locator(".gantt-fds").first().waitFor();
+await eng.locator(".gantt-linha", { hasText: "Execução" }).locator(".gantt-data", { hasText: "24/11" }).waitFor(); // início na ponta da barra (após o Estudo passar a 6 dias)
+await eng.locator(".gantt-linha", { hasText: "Execução" }).locator(".gantt-data", { hasText: "07/12" }).waitFor();
+await eng.locator(".gantt-linha", { hasText: "Mobilização" }).first().waitFor(); // etapa após a OS no modelo
 await eng.screenshot({ path: `${OUT}/05c-cronograma.png`, fullPage: true });
 await eng.getByRole("link", { name: "Cronograma", exact: true }).click();
 await eng.getByRole("heading", { name: "Cronograma", exact: true }).waitFor();
@@ -251,12 +254,65 @@ await eng.getByText("Arquivo enviado.").waitFor();
 await eng.locator(".docs").getByText("laudo.txt").waitFor();
 passo("upload de documento");
 
+// medição: OC com planilha, medição por quantidade, aprovação, pagamento e boletim
+await eng.getByRole("tab", { name: "Medição" }).click();
+await eng.getByRole("button", { name: "+ Ordem de Compra" }).click();
+await eng.locator(".modal label.campo", { hasText: "Número da OC" }).locator("input").fill("4500987");
+await eng.getByLabel("Nome do fornecedor").fill("Construtora Alfa");
+await eng.locator(".modal").getByRole("button", { name: "Salvar" }).click();
+await eng.locator(".oc", { hasText: "OC 4500987" }).waitFor();
+await eng.getByRole("button", { name: /Planilha \(0 itens\)/ }).click();
+await eng.getByRole("button", { name: "+ Item" }).click();
+await eng.getByLabel("Descrição do item").fill("Demolição de parede");
+await eng.getByLabel("Unidade").fill("m²");
+await eng.getByLabel("Quantidade contratada").fill("40");
+await eng.getByLabel("Preço unitário").fill("85,50");
+await eng.getByRole("button", { name: "+ Item" }).click();
+await eng.getByLabel("Descrição do item").nth(1).fill("Alvenaria estrutural");
+await eng.getByLabel("Unidade").nth(1).fill("m²");
+await eng.getByLabel("Quantidade contratada").nth(1).fill("40");
+await eng.getByLabel("Preço unitário").nth(1).fill("210");
+await eng.getByRole("button", { name: "Salvar planilha" }).click();
+await eng.locator(".oc").getByText("R$ 11.820,00").first().waitFor(); // 40×85,50 + 40×210
+await eng.getByRole("button", { name: "+ Nova medição" }).click();
+await eng.getByRole("heading", { name: /Medição nº 1/ }).waitFor();
+await eng.getByLabel("Quantidade medida de Demolição de parede").fill("40");
+await eng.getByLabel("Quantidade medida de Alvenaria estrutural").fill("45");
+await eng.getByRole("button", { name: "Salvar", exact: true }).click();
+await eng.getByText(/só restam 40/).waitFor();
+await eng.getByLabel("Quantidade medida de Alvenaria estrutural").fill("10");
+await eng.locator(".modal .resumo-numeros").getByText("R$ 5.520,00").waitFor(); // 3.420 + 2.100
+await eng.getByRole("button", { name: "Aprovar medição" }).click();
+await eng.getByText("Medição aprovada.").waitFor();
+await eng.locator(".oc tbody tr").first().getByRole("button", { name: "Abrir" }).click();
+await eng.getByPlaceholder("Nº da NF").fill("NF 7781");
+await eng.getByRole("button", { name: "Registrar pagamento" }).click();
+await eng.getByText("Pagamento registrado.").waitFor();
+await eng.locator(".oc tbody tr").first().getByText("Paga").waitFor();
+await eng.locator(".resumo-numeros").first().getByText("R$ 6.300,00").waitFor(); // saldo a medir
+await eng.screenshot({ path: `${OUT}/06b-medicao.png`, fullPage: true });
+await eng.locator(".oc tbody tr").first().getByRole("button", { name: "Abrir" }).click();
+const [boletim] = await Promise.all([eng.context().waitForEvent("page"), eng.getByRole("link", { name: "Boletim de medição (PDF)" }).click()]);
+await boletim.getByRole("heading", { name: "Boletim de Medição nº 1" }).waitFor();
+await boletim.locator(".totais-boletim .destaque-linha").getByText("R$ 5.520,00").waitFor();
+await boletim.screenshot({ path: `${OUT}/06c-boletim.png`, fullPage: true });
+await boletim.pdf({ path: `${OUT}/06d-boletim.pdf`, format: "A4", landscape: true, printBackground: true });
+await boletim.close();
+await eng.keyboard.press("Escape");
+passo("medição: OC com planilha, limite por item, aprovação, pagamento com NF, saldo e boletim em PDF");
+
 // RDO equipe
 await eng.getByRole("tab", { name: "RDO" }).click();
 await eng.getByRole("button", { name: "+ Novo RDO" }).click();
 await eng.getByRole("heading", { name: "RDO — Relatório Diário de Obra" }).waitFor();
-await eng.getByRole("button", { name: "+ Adicionar função" }).click();
+await eng.getByRole("button", { name: "+ Adicionar pessoa" }).click();
+await eng.getByLabel("Nome", { exact: true }).fill("José da Silva");
 await eng.getByLabel("Função").fill("Pedreiro");
+await eng.getByRole("button", { name: "+ Adicionar pessoa" }).click();
+await eng.getByLabel("Nome", { exact: true }).nth(1).fill("Carlos Souza");
+await eng.getByLabel("Função").nth(1).fill("Ajudante");
+await eng.getByText("Próprio: 2").waitFor();
+await eng.locator(".campo", { hasText: "AST realizada?" }).getByRole("button", { name: "Sim" }).click();
 await eng.getByLabel("Atividades executadas").fill("Escoramento provisório da parede.");
 await eng.getByRole("button", { name: "+ Adicionar ocorrência" }).click();
 await eng.getByLabel("Ocorrência").fill("Chuva forte às 14h");
@@ -283,10 +339,12 @@ await ctd.locator(".tabela tbody tr a").first().click();
 await ctd.locator(".demanda-cabecalho").waitFor();
 assert.equal(await ctd.getByRole("tab", { name: "Histórico" }).count(), 0, "contratada sem aba Histórico");
 assert.equal(await ctd.getByRole("tab", { name: "Custos" }).count(), 0, "contratada sem aba Custos");
+assert.equal(await ctd.getByRole("tab", { name: "Medição" }).count(), 0, "contratada sem aba Medição");
 await ctd.getByRole("tab", { name: "RDO" }).click();
 await ctd.getByRole("button", { name: "+ Novo RDO" }).click();
 await ctd.getByText("Preenchido pela contratada").waitFor();
-await ctd.getByRole("button", { name: "+ Adicionar função" }).click();
+await ctd.getByRole("button", { name: "+ Adicionar pessoa" }).click();
+await ctd.getByLabel("Nome", { exact: true }).fill("Pedro Lima");
 await ctd.getByLabel("Função").fill("Ajudante");
 await ctd.getByLabel("Atividades executadas").fill("Escavação da vala, 12 m.");
 await ctd.getByRole("button", { name: "+ Adicionar ocorrência" }).click();
@@ -331,6 +389,7 @@ await con.locator(".linha-tempo li").first().waitFor();
 assert.equal(await con.getByLabel("Texto do andamento").count(), 0, "consulta não registra");
 assert.equal(await con.getByRole("button", { name: "editar" }).count(), 0, "consulta não edita");
 assert.equal(await con.getByRole("tab", { name: "Custos" }).count(), 0);
+assert.equal(await con.getByRole("tab", { name: "Medição" }).count(), 0, "consulta não vê medição");
 passo("consulta: só leitura, sem custos");
 
 // ---------- Gestor ----------

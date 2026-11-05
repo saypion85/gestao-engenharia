@@ -4,11 +4,12 @@ import { supabase, mensagemErro } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { enviarDocumento, excluirDocumento, urlTemporaria } from "../lib/arquivos";
 import { fmtData, fmtDataHora } from "../lib/dominio";
-import { Aviso, Campo, Carregando, notificar } from "../components/ui";
+import { Ajuda, Aviso, Campo, Carregando, notificar } from "../components/ui";
 import { STATUS_RDO } from "../components/demanda/RdosAba";
 import type { Documento } from "../components/demanda/DocumentosAba";
 
-interface Efetivo { funcao: string; quantidade: number; tipo: "proprio" | "terceiro" }
+/** Uma linha por pessoa. "quantidade" só existe em RDOs antigos (antes do campo Nome). */
+interface Efetivo { nome?: string; funcao: string; quantidade?: number; tipo: "proprio" | "terceiro" }
 interface Equip { descricao: string; quantidade: number }
 interface Ocorrencia { descricao: string; impedimento: boolean }
 
@@ -16,7 +17,7 @@ interface Rdo {
   id: number; demanda_id: number; data: string; origem: "equipe" | "contratada"; empresa_id: number | null;
   horario_inicio: string | null; horario_fim: string | null; clima_manha: string | null; clima_tarde: string | null;
   area_praticavel: boolean | null; efetivo: Efetivo[]; equipamentos: Equip[]; atividades_executadas: string | null;
-  atividades_ids: number[]; ocorrencias: Ocorrencia[]; dds_realizado: boolean | null; pt_emitida: boolean | null;
+  atividades_ids: number[]; ocorrencias: Ocorrencia[]; dds_realizado: boolean | null; pt_emitida: boolean | null; ast_realizada: boolean | null;
   incidentes: string | null; materiais_recebidos: string | null; observacoes_contratada: string | null;
   apontamentos_contratante: string | null; apontado_por_nome: string | null; apontado_em: string | null;
   status: string; revisado_por_nome: string | null; revisado_em: string | null; criado_por: string | null; criado_em: string;
@@ -24,7 +25,7 @@ interface Rdo {
 
 const CLIMA = { bom: "Bom", chuvoso: "Chuvoso", impraticavel: "Impraticável" };
 const CAMPOS_CONTEUDO = ["data", "horario_inicio", "horario_fim", "clima_manha", "clima_tarde", "area_praticavel", "efetivo", "equipamentos",
-  "atividades_executadas", "atividades_ids", "ocorrencias", "dds_realizado", "pt_emitida", "incidentes", "materiais_recebidos", "observacoes_contratada"] as const;
+  "atividades_executadas", "atividades_ids", "ocorrencias", "dds_realizado", "pt_emitida", "ast_realizada", "incidentes", "materiais_recebidos", "observacoes_contratada"] as const;
 
 function SimNao({ valor, mudar, disabled }: { valor: boolean | null; mudar: (v: boolean | null) => void; disabled: boolean }) {
   return (
@@ -89,7 +90,7 @@ export default function RdoPagina() {
     if (podeConteudo) CAMPOS_CONTEUDO.forEach((k) => (dados[k] = r[k]));
     if (podeApontar) dados.apontamentos_contratante = r.apontamentos_contratante;
     if (novoStatus) dados.status = novoStatus;
-    if (Array.isArray(dados.efetivo)) dados.efetivo = (dados.efetivo as Efetivo[]).filter((e) => e.funcao.trim());
+    if (Array.isArray(dados.efetivo)) dados.efetivo = (dados.efetivo as Efetivo[]).filter((e) => e.funcao.trim() || e.nome?.trim());
     if (Array.isArray(dados.equipamentos)) dados.equipamentos = (dados.equipamentos as Equip[]).filter((e) => e.descricao.trim());
     if (Array.isArray(dados.ocorrencias)) dados.ocorrencias = (dados.ocorrencias as Ocorrencia[]).filter((e) => e.descricao.trim());
     const { error } = await supabase.from("rdos").update(dados).eq("id", r.id);
@@ -142,8 +143,10 @@ export default function RdoPagina() {
   const remover = (campo: "efetivo" | "equipamentos" | "ocorrencias", i: number) =>
     mudar({ [campo]: (r[campo] as unknown[]).filter((_, j) => j !== i) } as Partial<Rdo>);
 
-  const totalProprio = r.efetivo.filter((e) => e.tipo === "proprio").reduce((s, e) => s + (Number(e.quantidade) || 0), 0);
-  const totalTerceiro = r.efetivo.filter((e) => e.tipo === "terceiro").reduce((s, e) => s + (Number(e.quantidade) || 0), 0);
+  // cada linha é uma pessoa; RDOs antigos com "quantidade" continuam somando certo
+  const pessoas = (e: Efetivo) => (e.quantidade && !e.nome ? Number(e.quantidade) || 1 : 1);
+  const totalProprio = r.efetivo.filter((e) => e.tipo === "proprio").reduce((s, e) => s + pessoas(e), 0);
+  const totalTerceiro = r.efetivo.filter((e) => e.tipo === "terceiro").reduce((s, e) => s + pessoas(e), 0);
   const dis = !podeConteudo;
 
   return (
@@ -194,12 +197,13 @@ export default function RdoPagina() {
       <section className="cartao">
         <h2>3. Efetivo <span className="sutil pequeno">Próprio: {totalProprio} · Terceiros: {totalTerceiro}</span></h2>
         <table className="tabela compacta tabela-form">
-          <thead><tr><th>Função</th><th>Qtd.</th><th>Vínculo</th>{!dis && <th />}</tr></thead>
+          <thead><tr><th>Nome</th><th>Função</th><th>Vínculo</th>{!dis && <th />}</tr></thead>
           <tbody>
             {r.efetivo.map((e, i) => (
               <tr key={i}>
-                <td><input value={e.funcao} disabled={dis} onChange={(x) => linhaLista<Efetivo>("efetivo", i, { funcao: x.target.value })} placeholder="Ex.: Pedreiro" aria-label="Função" /></td>
-                <td><input type="number" min={0} value={e.quantidade} disabled={dis} onChange={(x) => linhaLista<Efetivo>("efetivo", i, { quantidade: Number(x.target.value) })} aria-label="Quantidade" className="input-qtd" /></td>
+                <td><input value={e.nome ?? ""} disabled={dis} onChange={(x) => linhaLista<Efetivo>("efetivo", i, { nome: x.target.value })} placeholder="Nome da pessoa" aria-label="Nome" /></td>
+                <td><input value={e.funcao} disabled={dis} onChange={(x) => linhaLista<Efetivo>("efetivo", i, { funcao: x.target.value })} placeholder="Ex.: Pedreiro" aria-label="Função" />
+                  {e.quantidade && e.quantidade > 1 && !e.nome ? <small className="sutil"> ({e.quantidade} pessoas — registro antigo)</small> : null}</td>
                 <td><select value={e.tipo} disabled={dis} onChange={(x) => linhaLista<Efetivo>("efetivo", i, { tipo: x.target.value as Efetivo["tipo"] })} aria-label="Vínculo">
                   <option value="proprio">Próprio</option><option value="terceiro">Terceiro</option></select></td>
                 {!dis && <td><button type="button" className="btn-icone" onClick={() => remover("efetivo", i)} aria-label="Remover">✕</button></td>}
@@ -207,7 +211,7 @@ export default function RdoPagina() {
             ))}
           </tbody>
         </table>
-        {!dis && <button type="button" className="btn btn-link" onClick={() => mudar({ efetivo: [...r.efetivo, { funcao: "", quantidade: 1, tipo: r.origem === "contratada" ? "terceiro" : "proprio" }] })}>+ Adicionar função</button>}
+        {!dis && <button type="button" className="btn btn-link" onClick={() => mudar({ efetivo: [...r.efetivo, { nome: "", funcao: "", tipo: r.origem === "contratada" ? "terceiro" : "proprio" }] })}>+ Adicionar pessoa</button>}
       </section>
 
       <section className="cartao">
@@ -263,6 +267,7 @@ export default function RdoPagina() {
         <div className="grade-3">
           <div className="campo"><span className="campo-rotulo">DDS realizado?</span><SimNao valor={r.dds_realizado} disabled={dis} mudar={(v) => mudar({ dds_realizado: v })} /></div>
           <div className="campo"><span className="campo-rotulo">PT emitida?</span><SimNao valor={r.pt_emitida} disabled={dis} mudar={(v) => mudar({ pt_emitida: v })} /></div>
+          <div className="campo"><span className="campo-rotulo">AST realizada? <Ajuda>Análise de Segurança da Tarefa feita antes do início dos serviços.</Ajuda></span><SimNao valor={r.ast_realizada} disabled={dis} mudar={(v) => mudar({ ast_realizada: v })} /></div>
         </div>
         <Campo rotulo="Incidentes / quase acidentes"><textarea rows={2} value={r.incidentes ?? ""} disabled={dis} onChange={(e) => mudar({ incidentes: e.target.value || null })} placeholder="Deixe em branco se não houve." /></Campo>
       </section>

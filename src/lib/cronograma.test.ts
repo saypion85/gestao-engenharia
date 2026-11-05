@@ -32,7 +32,7 @@ describe("cronograma inicial", () => {
   it("etapa atual sem data de início recebe hoje", () => {
     const itens = itensIniciais({ id: 7, forma_execucao: "contratada", etapa: "rms_suprimentos", recebida_em: null, inicio: null, fim: null }, "2026-11-05");
     expect(itens.find((i) => i.etapa === "rms_suprimentos")?.inicio_real).toBe("2026-11-05");
-    expect(itens).toHaveLength(8);
+    expect(itens.map((i) => i.nome).slice(5)).toEqual(["Ordem de Serviço", "Mobilização", "Execução", "Medição e pagamento", "Encerramento"]);
   });
 });
 
@@ -94,5 +94,18 @@ describe("predecessoras (término → início)", () => {
   it("predecessora sem término é avisada", () => {
     const { erros } = calcularDatas([item("a", "A"), item("b", "B", { duracao_dias: 2 })], [{ item: "b", pred: "a", folga: 0 }], false);
     expect(erros[0]).toMatch(/ainda não tem término previsto/);
+  });
+});
+
+import { itensFaltantes } from "./cronograma";
+describe("etapas que faltam", () => {
+  it("completa um cronograma antigo com as etapas após a OS, sem duplicar", () => {
+    const antigos = ["recebida", "estudo_projeto", "memorial_descritivo", "rms_suprimentos", "aprovacao", "ordem_servico"].map((e) => ({ etapa: e as never, nome: e }));
+    const f = itensFaltantes([...antigos, { etapa: null, nome: "mobilização" }], { id: 1, forma_execucao: "contratada" });
+    expect(f.map((i) => i.nome)).toEqual(["Execução", "Medição e pagamento", "Encerramento"]);
+    expect(f.map((i) => i.ordem)).toEqual([60, 65, 70]);
+  });
+  it("execução interna não ganha mobilização nem medição", () => {
+    expect(itensFaltantes([], { id: 1, forma_execucao: "interna" }).map((i) => i.nome)).toEqual(["Recebida", "Estudo / Projeto", "Aprovação", "Execução", "Encerramento"]);
   });
 });
