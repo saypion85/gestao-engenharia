@@ -16,7 +16,7 @@ export interface LinhaGantt {
 
 const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
-export default function Gantt({ linhas, periodo, aoClicar, prazo, rotuloColuna = "Etapa" }: { linhas: LinhaGantt[]; periodo: [string, string]; aoClicar?: (chave: string) => void; prazo?: string | null; rotuloColuna?: string }) {
+export default function Gantt({ linhas, periodo, aoClicar, prazo, rotuloColuna = "Etapa", fimDeSemana = false }: { linhas: LinhaGantt[]; periodo: [string, string]; aoClicar?: (chave: string) => void; prazo?: string | null; rotuloColuna?: string; fimDeSemana?: boolean }) {
   const hoje = hojeISO();
   const [ini, fim] = periodo;
   const total = Math.max(1, diasEntre(ini, fim));
@@ -32,6 +32,15 @@ export default function Gantt({ linhas, periodo, aoClicar, prazo, rotuloColuna =
   }
   const hojeDentro = hoje >= ini && hoje <= fim;
   const prazoDentro = !!prazo && prazo >= ini && prazo <= fim;
+  // sábados (faixa de 2 dias) sombreados quando o calendário é de dias úteis e o período é curto
+  const sabados: number[] = [];
+  if (fimDeSemana && total <= 200) {
+    const base = new Date(ini + "T00:00:00Z");
+    for (let n = 0; n <= total; n++) {
+      const d = new Date(base.getTime() + n * 86400000);
+      if (d.getUTCDay() === 6) sabados.push((n / total) * 100);
+    }
+  }
 
   return (
     <div className="rolagem-x">
@@ -60,6 +69,7 @@ export default function Gantt({ linhas, periodo, aoClicar, prazo, rotuloColuna =
                 {l.sub && <div className="sutil pequeno">{l.sub}</div>}
               </div>
               <div className="gantt-trilho" role="cell" title={dica}>
+                {sabados.map((p) => <span key={p} className="gantt-fds" style={{ left: `${p}%`, width: `${(2 / total) * 100}%` }} />)}
                 {meses.map((m) => <span key={m.pos} className="gantt-grade" style={{ left: `${m.pos}%` }} />)}
                 {hojeDentro && <span className="gantt-hoje" style={{ left: `${x(hoje)}%` }} />}
                 {prazoDentro && <span className="gantt-prazo" style={{ left: `${x(prazo!)}%` }} />}
@@ -80,7 +90,7 @@ export default function Gantt({ linhas, periodo, aoClicar, prazo, rotuloColuna =
   );
 }
 
-export function LegendaGantt() {
+export function LegendaGantt({ fimDeSemana = false }: { fimDeSemana?: boolean }) {
   return (
     <div className="legenda">
       <span><i className="leg-prev" />Previsto</span>
@@ -89,6 +99,7 @@ export function LegendaGantt() {
       <span><i className="leg-real tom-critico" />Atrasado</span>
       <span><i className="leg-hoje" />Hoje</span>
       <span>◆ Prazo de conclusão</span>
+      {fimDeSemana && <span><i className="leg-fds" />Fim de semana (não conta)</span>}
     </div>
   );
 }

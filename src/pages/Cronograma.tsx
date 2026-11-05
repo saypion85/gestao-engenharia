@@ -4,7 +4,7 @@ import { supabase, mensagemErro } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { ETAPAS, FORMAS, fmtData, hojeISO } from "../lib/dominio";
 import { FILTROS_PADRAO, aplicarFiltros, type DemandaLinha } from "../lib/filtros";
-import type { ItemCronograma } from "../lib/cronograma";
+import type { Dependencia, ItemCronograma } from "../lib/cronograma";
 import { carregarDemandas } from "./Demandas";
 import { linhaGantt } from "../components/demanda/CronogramaAba";
 import Gantt, { LegendaGantt, type LinhaGantt } from "../components/Gantt";
@@ -17,6 +17,8 @@ export default function Cronograma() {
   const nav = useNavigate();
   const [demandas, setDemandas] = useState<DemandaLinha[] | null>(null);
   const [itens, setItens] = useState<ItemCronograma[]>([]);
+  const [deps, setDeps] = useState<Dependencia[]>([]);
+  const [uteis, setUteis] = useState<Set<number>>(new Set());
   const [erro, setErro] = useState("");
   const [resp, setResp] = useState("");
   const [forma, setForma] = useState("");
@@ -27,8 +29,14 @@ export default function Cronograma() {
   const hoje = hojeISO();
 
   useEffect(() => {
-    Promise.all([carregarDemandas(), supabase.from("cronograma").select("*").order("ordem")])
-      .then(([d, c]) => { if (c.error) throw c.error; setDemandas(d.lista); setItens(c.data as ItemCronograma[]); })
+    Promise.all([carregarDemandas(), supabase.from("cronograma").select("*").order("ordem"),
+      supabase.from("cronograma_dependencias").select("*"), supabase.from("cronograma_config").select("demanda_id, dias_uteis")])
+      .then(([d, c, dp, cf]) => {
+        if (c.error) throw c.error;
+        setDemandas(d.lista); setItens(c.data as ItemCronograma[]);
+        setDeps((dp.data as Dependencia[]) ?? []);
+        setUteis(new Set(((cf.data ?? []) as { demanda_id: number; dias_uteis: boolean }[]).filter((x) => x.dias_uteis).map((x) => x.demanda_id)));
+      })
       .catch((e) => setErro(mensagemErro(e)));
   }, []);
 
@@ -46,7 +54,7 @@ export default function Cronograma() {
 
   const linhas: (LinhaGantt & { atraso: number; ordem: string })[] = comCrono.map((d) => {
     const its = porDemanda.get(d.id)!;
-    const ls = its.map((i) => linhaGantt(i, d, hoje));
+    const ls = its.map((i) => linhaGantt(i, d, hoje, { uteis: uteis.has(d.id), deps, itens: its }));
     const pi = its.map((i) => i.inicio_previsto ?? i.fim_previsto).filter(Boolean).sort() as string[];
     const pf = its.map((i) => i.fim_previsto ?? i.inicio_previsto).filter(Boolean).sort() as string[];
     const ri = its.map((i) => i.inicio_real ?? i.fim_real).filter(Boolean).sort() as string[];

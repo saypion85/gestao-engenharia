@@ -139,32 +139,45 @@ await eng.getByRole("tab", { name: "Resumo" }).click();
 await eng.locator(".cartao", { hasText: "Comentários importantes" }).getByText("das 7h às 17h").waitFor();
 passo("comentário com autor/data, editado pelo autor e destacado no Resumo");
 
-// cronograma
+// cronograma: durações, predecessoras e calendário
 await eng.getByRole("tab", { name: "Cronograma" }).click();
 await eng.getByRole("button", { name: "Criar cronograma" }).click();
 await eng.getByRole("heading", { name: "Editar cronograma" }).waitFor();
-await eng.getByLabel("Início previsto de Estudo / Projeto").fill("2026-10-20");
-await eng.getByLabel("Fim previsto de Estudo / Projeto").fill("2026-11-01");
-await eng.getByLabel("Início previsto de Memorial Descritivo").fill("2026-11-02");
-await eng.getByLabel("Fim previsto de Memorial Descritivo").fill("2026-11-20");
-await eng.getByLabel("Início previsto de Execução").fill("2026-12-01");
-await eng.getByLabel("Fim previsto de Execução").fill("2026-12-20");
+await eng.getByLabel("Início previsto de Estudo / Projeto").fill("2026-11-09"); // segunda
+await eng.getByLabel("Duração de Estudo / Projeto").fill("5");
+await eng.getByLabel("Fim previsto de Estudo / Projeto").and(eng.locator('[value="2026-11-13"]')).waitFor(); // sexta
+await eng.getByLabel("Adicionar predecessora para Memorial Descritivo").selectOption({ label: "#2 Estudo / Projeto" });
+await eng.getByLabel("Duração de Memorial Descritivo").fill("3");
+// dias corridos: começa no sábado seguinte
+await eng.getByLabel("Fim previsto de Memorial Descritivo").and(eng.locator('[value="2026-11-16"]')).waitFor();
+await eng.getByRole("button", { name: /dias úteis/ }).click();
+// dias úteis: começa na segunda 16/11 e termina 18/11
+await eng.getByLabel("Fim previsto de Memorial Descritivo").and(eng.locator('[value="2026-11-18"]')).waitFor();
+await eng.getByLabel("Adicionar predecessora para Execução").selectOption({ label: "#3 Memorial Descritivo" });
+await eng.getByLabel("Folga após Memorial Descritivo").fill("2");
+await eng.getByLabel("Duração de Execução").fill("10");
+await eng.getByLabel("Fim previsto de Execução").and(eng.locator('[value="2026-12-04"]')).waitFor(); // início 23/11 (+2 úteis), 10 dias úteis
+// mudar a duração do Estudo empurra a cadeia
+await eng.getByLabel("Duração de Estudo / Projeto").fill("6");
+await eng.getByLabel("Fim previsto de Execução").and(eng.locator('[value="2026-12-07"]')).waitFor();
 await eng.getByRole("button", { name: /Item personalizado/ }).click();
 await eng.getByLabel("Nome do item").fill("Mobilização da contratada");
 await eng.getByRole("button", { name: "Salvar cronograma" }).click();
 await eng.getByText("Cronograma salvo.").waitFor();
-await eng.locator(".gantt-linha", { hasText: "Estudo / Projeto" }).getByText(/Atrasada/).waitFor();
+await eng.locator(".resumo-numeros").getByText("Dias úteis").waitFor();
+await eng.locator(".gantt-linha", { hasText: "Execução" }).getByText(/após Memorial Descritivo \+2d úteis/).waitFor();
 await eng.locator(".gantt-linha", { hasText: "Mobilização da contratada" }).waitFor();
+await eng.locator(".gantt-fds").first().waitFor();
 await eng.screenshot({ path: `${OUT}/05c-cronograma.png`, fullPage: true });
 await eng.getByRole("link", { name: "Cronograma", exact: true }).click();
 await eng.getByRole("heading", { name: "Cronograma", exact: true }).waitFor();
 await eng.locator(".gantt-linha", { hasText: "Recuperação de parede do Armazém 8" }).click();
-await eng.getByRole("button", { name: "Editar datas" }).waitFor();
+await eng.getByRole("button", { name: "Editar cronograma" }).waitFor();
 await eng.goBack();
 await eng.screenshot({ path: `${OUT}/05d-cronograma-geral.png`, fullPage: true });
 await eng.goto(urlDemanda);
 await eng.locator(".demanda-cabecalho").waitFor();
-passo("cronograma criado pelas etapas, datas previstas, item personalizado, atraso sinalizado e visão geral");
+passo("cronograma: predecessoras propagam datas, dias corridos × úteis, folga, item personalizado e visão geral");
 
 // atividades
 await eng.getByRole("tab", { name: "Atividades" }).click();

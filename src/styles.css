@@ -543,6 +543,17 @@ details.dados summary { cursor: pointer; color: var(--texto-sutil); }
 .gantt-trilho { position: relative; min-height: 28px; }
 .gantt-mes { position: absolute; top: 6px; transform: translateX(4px); white-space: nowrap; }
 .gantt-hoje-rotulo { position: absolute; top: 6px; transform: translateX(-50%); color: var(--trl-vermelho); font-weight: 600; background: var(--trl-branco); padding: 0 3px; }
+.gantt-fds { position: absolute; top: 0; bottom: 0; background: var(--trl-cinza-100); opacity: 0.7; }
+.gantt-apos { color: var(--texto-sutil); }
+.legenda .leg-fds { background: var(--trl-cinza-100); }
+.calendario-opcao { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 4px 0 10px; }
+.celula-preds { min-width: 200px; }
+.pred-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--trl-cinza-50); border: 1px solid var(--trl-cinza-300); border-radius: 999px; padding: 2px 4px 2px 8px; margin: 0 4px 4px 0; font-size: 0.75rem; white-space: nowrap; }
+.pred-chip input { width: 48px !important; min-height: 24px !important; padding: 1px 4px !important; font-size: 0.75rem; }
+.pred-chip button { background: none; border: 0; cursor: pointer; color: var(--texto-sutil); padding: 0 2px; }
+.celula-preds select { min-height: 32px !important; padding: 3px 6px !important; font-size: 0.75rem; width: auto; }
+.calculado { white-space: nowrap; }
+.calculado small { color: var(--texto-sutil); display: block; font-size: 0.68rem; }
 .gantt-grade { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--trl-cinza-100); }
 .gantt-hoje { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--trl-vermelho); opacity: 0.7; z-index: 2; }
 .gantt-prev { position: absolute; top: 9px; height: 12px; border: 2px solid var(--trl-cinza-400); border-radius: 4px; background: color-mix(in srgb, var(--trl-cinza-400) 18%, transparent); }

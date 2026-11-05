@@ -226,3 +226,29 @@ test("cronograma: realizado automático ao mudar etapa; contratada lê e não ed
   assert.ok(ctdIns.error, "contratada não edita cronograma");
   await c.gestor.from("demandas").delete().eq("id", dem.id);
 });
+
+test("cronograma: predecessoras na mesma demanda, sem ciclo; calendário por demanda", async () => {
+  const { data: d1 } = await c.engenheiro.from("demandas").insert({ assunto: "Teste dependências", forma_execucao: "interna" }).select().single();
+  const { data: d2 } = await c.engenheiro.from("demandas").insert({ assunto: "Outra demanda", forma_execucao: "interna" }).select().single();
+  const { data: its } = await c.engenheiro.from("cronograma").insert([
+    { demanda_id: d1.id, nome: "A", ordem: 1, duracao_dias: 3 }, { demanda_id: d1.id, nome: "B", ordem: 2, duracao_dias: 2 },
+    { demanda_id: d1.id, nome: "C", ordem: 3 }, { demanda_id: d2.id, nome: "X", ordem: 1 },
+  ]).select("id, nome");
+  const id = (n) => its.find((i) => i.nome === n).id;
+  assert.ifError((await c.engenheiro.from("cronograma_dependencias").insert({ item_id: id("B"), predecessora_id: id("A"), folga_dias: 2 })).error);
+  assert.ifError((await c.engenheiro.from("cronograma_dependencias").insert({ item_id: id("C"), predecessora_id: id("B") })).error);
+  const ciclo = await c.engenheiro.from("cronograma_dependencias").insert({ item_id: id("A"), predecessora_id: id("C") });
+  assert.match(ciclo.error?.message ?? "", /circular/i, "ciclo A→B→C→A recusado");
+  const outra = await c.engenheiro.from("cronograma_dependencias").insert({ item_id: id("A"), predecessora_id: id("X") });
+  assert.match(outra.error?.message ?? "", /mesma demanda/i);
+  const propria = await c.engenheiro.from("cronograma_dependencias").insert({ item_id: id("A"), predecessora_id: id("A") });
+  assert.ok(propria.error, "item não depende de si mesmo");
+  assert.ifError((await c.engenheiro.from("cronograma_config").upsert({ demanda_id: d1.id, dias_uteis: true })).error);
+  const cons = await c.consulta.from("cronograma_dependencias").insert({ item_id: id("C"), predecessora_id: id("A") });
+  assert.ok(cons.error, "consulta não edita");
+  const { data: lidas } = await c.consulta.from("cronograma_dependencias").select("*").in("item_id", [id("B"), id("C")]);
+  assert.equal(lidas.length, 2, "consulta lê");
+  await c.gestor.from("demandas").delete().in("id", [d1.id, d2.id]);
+  const { data: sobras } = await c.gestor.from("cronograma_dependencias").select("*").in("item_id", [id("B"), id("C")]);
+  assert.equal(sobras.length, 0, "dependências removidas junto com a demanda");
+});

@@ -35,3 +35,64 @@ describe("cronograma inicial", () => {
     expect(itens).toHaveLength(8);
   });
 });
+
+import { calcularDatas, duracaoEntre, fimPorDuracao, somarDias, proximoUtil } from "./cronograma";
+
+describe("calendário", () => {
+  it("dias corridos contam fins de semana", () => {
+    expect(fimPorDuracao("2026-11-05", 5, false)).toBe("2026-11-09"); // qui → seg
+    expect(duracaoEntre("2026-11-05", "2026-11-09", false)).toBe(5);
+  });
+  it("dias úteis pulam sábado e domingo", () => {
+    expect(fimPorDuracao("2026-11-05", 5, true)).toBe("2026-11-11"); // qui, sex, seg, ter, qua
+    expect(duracaoEntre("2026-11-05", "2026-11-11", true)).toBe(5);
+    expect(proximoUtil("2026-11-07")).toBe("2026-11-09"); // sábado → segunda
+    expect(somarDias("2026-11-06", 1, true)).toBe("2026-11-09"); // sexta + 1 útil = segunda
+    expect(somarDias("2026-11-09", -1, true)).toBe("2026-11-06");
+  });
+});
+
+describe("predecessoras (término → início)", () => {
+  const item = (chave: string, nome: string, extra: object = {}) => ({ chave, demanda_id: 1, etapa: null, nome, ordem: 0, inicio_previsto: null, fim_previsto: null, inicio_real: null, fim_real: null, observacao: null, duracao_dias: null, ...extra });
+
+  it("sucessora começa no dia seguinte ao término e segue a duração", () => {
+    const { itens, erros } = calcularDatas([
+      item("a", "Projeto", { inicio_previsto: "2026-11-02", duracao_dias: 5 }),
+      item("b", "MD", { duracao_dias: 3 }),
+      item("c", "RMS", { duracao_dias: 2 }),
+    ], [{ item: "b", pred: "a", folga: 0 }, { item: "c", pred: "b", folga: 2 }], false);
+    expect(erros).toEqual([]);
+    expect(itens[0]).toMatchObject({ inicio_previsto: "2026-11-02", fim_previsto: "2026-11-06" });
+    expect(itens[1]).toMatchObject({ inicio_previsto: "2026-11-07", fim_previsto: "2026-11-09" });
+    expect(itens[2]).toMatchObject({ inicio_previsto: "2026-11-12", fim_previsto: "2026-11-13" }); // +2 dias de folga
+  });
+
+  it("em dias úteis, o início que cairia no sábado vai para segunda", () => {
+    const { itens } = calcularDatas([
+      item("a", "Projeto", { inicio_previsto: "2026-11-02", duracao_dias: 5 }), // seg a sex
+      item("b", "MD", { duracao_dias: 3 }),
+    ], [{ item: "b", pred: "a", folga: 0 }], true);
+    expect(itens[0].fim_previsto).toBe("2026-11-06");
+    expect(itens[1]).toMatchObject({ inicio_previsto: "2026-11-09", fim_previsto: "2026-11-11" });
+  });
+
+  it("com várias predecessoras, vale a que termina por último", () => {
+    const { itens } = calcularDatas([
+      item("a", "A", { inicio_previsto: "2026-11-02", duracao_dias: 2 }),
+      item("b", "B", { inicio_previsto: "2026-11-02", duracao_dias: 8 }),
+      item("c", "C", { duracao_dias: 1 }),
+    ], [{ item: "c", pred: "a", folga: 0 }, { item: "c", pred: "b", folga: 0 }], false);
+    expect(itens[2].inicio_previsto).toBe("2026-11-10");
+  });
+
+  it("dependência circular é recusada", () => {
+    const { erros } = calcularDatas([item("a", "A", { duracao_dias: 1 }), item("b", "B", { duracao_dias: 1 })],
+      [{ item: "a", pred: "b", folga: 0 }, { item: "b", pred: "a", folga: 0 }], false);
+    expect(erros[0]).toMatch(/circular/);
+  });
+
+  it("predecessora sem término é avisada", () => {
+    const { erros } = calcularDatas([item("a", "A"), item("b", "B", { duracao_dias: 2 })], [{ item: "b", pred: "a", folga: 0 }], false);
+    expect(erros[0]).toMatch(/ainda não tem término previsto/);
+  });
+});

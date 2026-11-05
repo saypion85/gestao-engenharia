@@ -64,7 +64,18 @@ Ciclo: Rascunho → Enviado → Revisado (sem/com ressalvas). Revisado = travado
 ## Cronograma
 
 - **Na demanda (aba Cronograma):** "Criar cronograma" gera os itens com as etapas do fluxo da forma de execução. As datas já conhecidas entram como realizadas: data de recebimento e início/fim da execução. É possível incluir itens personalizados, como mobilização ou entrega de material.
-- Cada item tem **início e fim previstos** e **início e fim realizados**.
+- Cada item tem **duração**, **início e fim previstos** e **início e fim realizados**.
+- **Calendário (por demanda):** "Contar fins de semana nos prazos?"
+  - **Sim, dias corridos:** sábados e domingos contam na duração e nas folgas.
+  - **Não, dias úteis:** só de segunda a sexta. Um início que cairia no fim de semana passa para a segunda-feira, e a linha do tempo sombreia os fins de semana.
+  - Feriados ainda não são considerados.
+- **Predecessoras (término → início):** o item só começa no dia seguinte ao término da predecessora.
+  - Cada vínculo aceita uma **folga** em dias: positiva adia, negativa antecipa.
+  - Com várias predecessoras, vale a que termina por último.
+  - O início de quem tem predecessora é **calculado**; o fim é início + duração.
+  - Mudar a duração ou as datas de uma etapa **empurra toda a cadeia** de sucessoras.
+  - O sistema recusa dependência circular (A → B → A) e predecessora de outra demanda, e avisa quando uma predecessora ainda não tem término previsto.
+- **Aguardando predecessora:** item ainda não iniciado, com o início previsto já passado, mas com alguma predecessora não concluída.
 - **Realizado automático:** quando a etapa da demanda muda, o sistema preenche o fim realizado da etapa anterior e o início realizado da nova, se ainda estiverem vazios. Ao concluir a demanda, fecha os itens em andamento. Tudo pode ser corrigido manualmente.
 - **Situação de cada item:**
 
@@ -75,11 +86,12 @@ Ciclo: Rascunho → Enviado → Revisado (sem/com ressalvas). Revisado = travado
 | Em andamento | Tem início realizado, não tem fim, e hoje ainda não passou do fim previsto |
 | Atrasada | Tem início realizado, não tem fim, e hoje já passou do fim previsto |
 | Início atrasado | Ainda sem realizado, e hoje já passou do início previsto |
+| Aguardando predecessora | Igual ao "início atrasado", mas alguma predecessora ainda não foi concluída |
 | Programada | Sem realizado e com previsão futura |
 | Não realizada | Etapa que a demanda já ultrapassou sem registro de realização |
 | Sem previsão | Sem datas previstas |
 
-- **Desvio** = dias entre o fim previsto e o fim realizado (ou hoje, se ainda aberta e já vencida).
+- **Desvio** = dias entre o fim previsto e o fim realizado (ou hoje, se ainda aberta e já vencida). Em demandas com dias úteis, o desvio também é contado em dias úteis.
 - O gráfico mostra o previsto (contorno), o realizado (barra cheia; listrada quando ainda em andamento), a linha de hoje e a linha tracejada do prazo de conclusão. Há um aviso quando o término previsto passa do prazo de conclusão.
 - **Menu Cronograma:** uma linha por demanda. O previsto vai do primeiro início previsto ao último fim previsto; o realizado, do primeiro início realizado até o último fim, ou até hoje se ainda estiver aberto. Demandas com alguma etapa atrasada ficam em vermelho e aparecem primeiro. A página também lista as demandas que ainda não têm cronograma.
 - **Permissões:** Gestor e Engenheiro editam; equipe interna e contratada (só nas demandas da própria empresa) visualizam.
