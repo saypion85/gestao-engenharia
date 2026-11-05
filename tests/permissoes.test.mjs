@@ -177,3 +177,52 @@ test("pontos de ação do painel: só o Gestor grava; contratada não lê", asyn
   assert.equal(ctd.length, 0, "contratada não lê");
   await c.gestor.from("painel_pontos").delete().eq("id", "teste-permissao");
 });
+
+test("comentários: autor e data automáticos; só autor ou Gestor editam; contratada não vê", async () => {
+  const { data: com, error } = await c.engenheiro.from("comentarios").insert({ demanda_id: demOutra, texto: "Reunião com a Operação definiu janela de obra.", autor_nome: "Falsário" }).select().single();
+  assert.ifError(error);
+  assert.equal(com.autor_nome, "Luis Soares", "autor vem do login, não do que foi enviado");
+  const cons = await c.consulta.from("comentarios").insert({ demanda_id: demOutra, texto: "x" });
+  assert.ok(cons.error, "consulta não comenta");
+  const { data: lidoConsulta } = await c.consulta.from("comentarios").select("id").eq("id", com.id);
+  assert.equal(lidoConsulta.length, 1, "consulta lê");
+  const { data: lidoCtd } = await c.contratada.from("comentarios").select("id");
+  assert.equal(lidoCtd.length, 0, "contratada não lê");
+
+  const ed = await c.engenheiro.from("comentarios").update({ texto: "Reunião com a Operação definiu janela: 10 a 14/11." }).eq("id", com.id).select().single();
+  assert.ifError(ed.error);
+  assert.ok(ed.data.editado_em, "registra edição");
+  const troca = await c.engenheiro.from("comentarios").update({ autor_id: null }).eq("id", com.id);
+  assert.ok(troca.error, "autor não pode ser trocado");
+
+  // outro engenheiro (gestor rebaixado não; usamos a regra: só autor ou gestor) — gestor edita e marca importante
+  const g = await c.gestor.from("comentarios").update({ importante: true }).eq("id", com.id).select().single();
+  assert.ifError(g.error);
+  assert.equal(g.data.editado_por_nome, "Gustavo Sipião");
+  const { data: doGestor } = await c.gestor.from("comentarios").insert({ demanda_id: demOutra, texto: "Comentário do gestor" }).select().single();
+  const r = await c.engenheiro.from("comentarios").update({ texto: "alterado" }).eq("id", doGestor.id).select();
+  assert.equal(r.data?.length ?? 0, 0, "engenheiro não edita comentário de outra pessoa");
+  const del = await c.engenheiro.from("comentarios").delete().eq("id", doGestor.id).select();
+  assert.equal(del.data?.length ?? 0, 0, "engenheiro não exclui comentário de outra pessoa");
+});
+
+test("cronograma: realizado automático ao mudar etapa; contratada lê e não edita", async () => {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const { data: dem } = await c.engenheiro.from("demandas").insert({ assunto: "Teste cronograma", forma_execucao: "interna", etapa: "estudo_projeto", situacao: "em_andamento", empresa_id: null }).select().single();
+  const ins = await c.engenheiro.from("cronograma").insert([
+    { demanda_id: dem.id, etapa: "estudo_projeto", nome: "Estudo / Projeto", ordem: 10, inicio_previsto: "2026-01-01", fim_previsto: "2026-01-10", inicio_real: "2026-01-02" },
+    { demanda_id: dem.id, etapa: "aprovacao", nome: "Aprovação", ordem: 20 },
+  ]);
+  assert.ifError(ins.error);
+  await c.engenheiro.from("demandas").update({ etapa: "aprovacao" }).eq("id", dem.id);
+  const { data: itens } = await c.engenheiro.from("cronograma").select("etapa, inicio_real, fim_real").eq("demanda_id", dem.id).order("ordem");
+  assert.equal(itens[0].fim_real, hoje, "fecha a etapa anterior");
+  assert.equal(itens[1].inicio_real, hoje, "abre a nova etapa");
+  const ruim = await c.engenheiro.from("cronograma").insert({ demanda_id: dem.id, nome: "x", inicio_previsto: "2026-02-10", fim_previsto: "2026-02-01" });
+  assert.ok(ruim.error, "fim antes do início é recusado");
+  const { data: lidosCtd } = await c.contratada.from("cronograma").select("id").eq("demanda_id", demContratada);
+  assert.ok(Array.isArray(lidosCtd));
+  const ctdIns = await c.contratada.from("cronograma").insert({ demanda_id: demContratada, nome: "x" });
+  assert.ok(ctdIns.error, "contratada não edita cronograma");
+  await c.gestor.from("demandas").delete().eq("id", dem.id);
+});

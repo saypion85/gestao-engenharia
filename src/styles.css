@@ -520,6 +520,56 @@ details.dados summary { cursor: pointer; color: var(--texto-sutil); }
   .kpi-val { font-size: 1.8rem; }
 }
 
+/* ---------- Comentários ---------- */
+.novo-comentario { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--trl-cinza-100); }
+.comentarios { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.comentario { border: 1px solid var(--trl-cinza-200); border-radius: var(--trl-radius); padding: 12px 14px; }
+.comentario.importante { border-color: var(--trl-vermelho); border-left-width: 4px; }
+.comentario-topo { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.comentario-topo > div { flex: 1; min-width: 0; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--trl-texto); color: var(--trl-branco); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.8rem; flex: none; }
+.comentario-texto { margin: 0 0 6px; }
+.comentarios.compactos li { border: 0; border-bottom: 1px solid var(--trl-cinza-100); border-radius: 0; padding: 0 0 8px; list-style: none; }
+
+/* ---------- Cronograma (Gantt) ---------- */
+.gantt { min-width: 720px; font-size: 0.8125rem; }
+.gantt-linha { display: grid; grid-template-columns: 240px 1fr; border-bottom: 1px solid var(--trl-cinza-100); min-height: 46px; }
+.gantt-linha.clicavel { cursor: pointer; }
+.gantt-linha.clicavel:hover, .gantt-linha.clicavel:focus-visible { background: var(--trl-cinza-50); }
+.gantt-linha.destaque .gantt-rotulo { box-shadow: inset 3px 0 0 var(--trl-vermelho); }
+.gantt-cabecalho { min-height: 28px; border-bottom: 2px solid var(--trl-cinza-200); color: var(--texto-sutil); font-size: 0.75rem; }
+.gantt-rotulo { padding: 6px 10px 6px 8px; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.gantt-nome { font-weight: 500; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.gantt-trilho { position: relative; min-height: 28px; }
+.gantt-mes { position: absolute; top: 6px; transform: translateX(4px); white-space: nowrap; }
+.gantt-hoje-rotulo { position: absolute; top: 6px; transform: translateX(-50%); color: var(--trl-vermelho); font-weight: 600; background: var(--trl-branco); padding: 0 3px; }
+.gantt-grade { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--trl-cinza-100); }
+.gantt-hoje { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--trl-vermelho); opacity: 0.7; z-index: 2; }
+.gantt-prev { position: absolute; top: 9px; height: 12px; border: 2px solid var(--trl-cinza-400); border-radius: 4px; background: color-mix(in srgb, var(--trl-cinza-400) 18%, transparent); }
+.gantt-real { position: absolute; top: 23px; height: 12px; border-radius: 4px; background: var(--trl-texto); z-index: 1; }
+.gantt-real.aberto { background: repeating-linear-gradient(135deg, var(--trl-texto) 0 6px, color-mix(in srgb, var(--trl-texto) 55%, transparent) 6px 10px); }
+.gantt-real.tom-critico { background: var(--trl-vermelho); }
+.gantt-real.tom-critico.aberto { background: repeating-linear-gradient(135deg, var(--trl-vermelho) 0 6px, color-mix(in srgb, var(--trl-vermelho) 55%, transparent) 6px 10px); }
+.gantt-real.tom-atencao { background: var(--trl-status-atencao); }
+.gantt-real.tom-ok { background: var(--trl-texto); }
+.gantt-prazo { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--trl-vermelho); z-index: 2; }
+.gantt-prazo-rotulo { position: absolute; top: 6px; transform: translateX(-50%); color: var(--texto-alerta); font-weight: 600; background: var(--trl-branco); padding: 0 3px; white-space: nowrap; z-index: 3; }
+.gantt-marco { position: absolute; top: 12px; transform: translateX(-50%); color: var(--trl-vermelho); font-size: 0.9rem; line-height: 1; z-index: 3; }
+.legenda .leg-prev { border: 2px solid var(--trl-cinza-400); background: transparent; }
+.legenda .leg-real { background: var(--trl-texto); border-color: var(--trl-texto); }
+.legenda .leg-real.aberto { background: repeating-linear-gradient(135deg, var(--trl-texto) 0 3px, var(--trl-cinza-300) 3px 5px); }
+.legenda .leg-real.tom-critico { background: var(--trl-vermelho); border-color: var(--trl-vermelho); }
+.legenda .leg-hoje { width: 2px !important; background: var(--trl-vermelho); border: 0; }
+.tom-texto-critico { color: var(--texto-alerta); font-weight: 600; }
+.tom-texto-atencao { color: var(--trl-status-atencao); font-weight: 600; }
+.tom-texto-ok { color: var(--trl-status-ok); }
+.tabela-cronograma td { padding: 4px; }
+.tabela-cronograma input { min-height: 36px !important; padding: 5px 6px !important; font-size: 0.8125rem; }
+.tabela-cronograma input[type=date] { min-width: 140px; }
+.busca-curta { width: 220px !important; min-height: 40px !important; }
+details.cartao summary { cursor: pointer; }
+@media (max-width: 760px) { .gantt-linha { grid-template-columns: 150px 1fr; } .busca-curta { width: 100% !important; } }
+
 /* ---------- Celular / tablet ---------- */
 @media (max-width: 900px) {
   .grade-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }

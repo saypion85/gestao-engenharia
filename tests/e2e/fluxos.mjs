@@ -124,6 +124,48 @@ await eng.getByLabel("Filtrar histórico").selectOption("todos");
 await eng.getByText(/Situação: Não iniciada → Em andamento/).waitFor();
 passo("histórico tem o registro manual e a mudança automática");
 
+// comentários
+await eng.getByRole("tab", { name: "Comentários" }).click();
+await eng.getByLabel("Novo comentário").fill("Operação liberou a área somente aos sábados.");
+await eng.getByText("Marcar como importante (aparece no Resumo)").click();
+await eng.getByRole("button", { name: "Publicar comentário" }).click();
+await eng.locator(".comentario", { hasText: "somente aos sábados" }).getByText("★ Importante").waitFor();
+await eng.locator(".comentario", { hasText: "somente aos sábados" }).getByRole("button", { name: "Editar" }).click();
+await eng.getByLabel("Editar comentário").fill("Operação liberou a área somente aos sábados, das 7h às 17h.");
+await eng.locator(".comentario").getByRole("button", { name: "Salvar" }).click();
+await eng.locator(".comentario", { hasText: "das 7h às 17h" }).getByText(/editado em/).waitFor();
+await eng.screenshot({ path: `${OUT}/05b-comentarios.png` });
+await eng.getByRole("tab", { name: "Resumo" }).click();
+await eng.locator(".cartao", { hasText: "Comentários importantes" }).getByText("das 7h às 17h").waitFor();
+passo("comentário com autor/data, editado pelo autor e destacado no Resumo");
+
+// cronograma
+await eng.getByRole("tab", { name: "Cronograma" }).click();
+await eng.getByRole("button", { name: "Criar cronograma" }).click();
+await eng.getByRole("heading", { name: "Editar cronograma" }).waitFor();
+await eng.getByLabel("Início previsto de Estudo / Projeto").fill("2026-10-20");
+await eng.getByLabel("Fim previsto de Estudo / Projeto").fill("2026-11-01");
+await eng.getByLabel("Início previsto de Memorial Descritivo").fill("2026-11-02");
+await eng.getByLabel("Fim previsto de Memorial Descritivo").fill("2026-11-20");
+await eng.getByLabel("Início previsto de Execução").fill("2026-12-01");
+await eng.getByLabel("Fim previsto de Execução").fill("2026-12-20");
+await eng.getByRole("button", { name: /Item personalizado/ }).click();
+await eng.getByLabel("Nome do item").fill("Mobilização da contratada");
+await eng.getByRole("button", { name: "Salvar cronograma" }).click();
+await eng.getByText("Cronograma salvo.").waitFor();
+await eng.locator(".gantt-linha", { hasText: "Estudo / Projeto" }).getByText(/Atrasada/).waitFor();
+await eng.locator(".gantt-linha", { hasText: "Mobilização da contratada" }).waitFor();
+await eng.screenshot({ path: `${OUT}/05c-cronograma.png`, fullPage: true });
+await eng.getByRole("link", { name: "Cronograma", exact: true }).click();
+await eng.getByRole("heading", { name: "Cronograma", exact: true }).waitFor();
+await eng.locator(".gantt-linha", { hasText: "Recuperação de parede do Armazém 8" }).click();
+await eng.getByRole("button", { name: "Editar datas" }).waitFor();
+await eng.goBack();
+await eng.screenshot({ path: `${OUT}/05d-cronograma-geral.png`, fullPage: true });
+await eng.goto(urlDemanda);
+await eng.locator(".demanda-cabecalho").waitFor();
+passo("cronograma criado pelas etapas, datas previstas, item personalizado, atraso sinalizado e visão geral");
+
 // atividades
 await eng.getByRole("tab", { name: "Atividades" }).click();
 await eng.getByRole("button", { name: "+ Novo item" }).click();

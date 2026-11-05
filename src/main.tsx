@@ -16,6 +16,7 @@ const DemandaNova = lazy(() => import("./pages/DemandaNova"));
 const DemandaDetalhe = lazy(() => import("./pages/DemandaDetalhe"));
 const RdoPagina = lazy(() => import("./pages/RdoPagina"));
 const Atividades = lazy(() => import("./pages/Atividades"));
+const Cronograma = lazy(() => import("./pages/Cronograma"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
 const Cadastros = lazy(() => import("./pages/Cadastros"));
 const Conta = lazy(() => import("./pages/Conta"));
@@ -45,6 +46,7 @@ function Rotas() {
           <Route path="demandas/:id" element={<DemandaDetalhe />} />
           <Route path="demandas/:id/rdo/:rdoId" element={<RdoPagina />} />
           <Route path="atividades" element={eContratada ? <Navigate to="/demandas" /> : <Atividades />} />
+          <Route path="cronograma" element={eContratada ? <Navigate to="/demandas" /> : <Cronograma />} />
           <Route path="usuarios" element={eGestor ? <Usuarios /> : <Navigate to="/" />} />
           <Route path="cadastros" element={eGestor ? <Cadastros /> : <Navigate to="/" />} />
           <Route path="conta" element={<Conta />} />

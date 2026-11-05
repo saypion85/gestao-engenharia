@@ -1,11 +1,12 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase, mensagemErro } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
-import { CATEGORIAS, ESFORCO, ETAPAS, FLUXO, FORMAS, MD_SITUACOES, SITUACOES, diasAte, fmtData, hojeISO, type Etapa, type Situacao } from "../../lib/dominio";
+import { CATEGORIAS, ESFORCO, ETAPAS, FLUXO, FORMAS, MD_SITUACOES, SITUACOES, diasAte, fmtData, fmtDataHora, hojeISO, type Etapa, type Situacao } from "../../lib/dominio";
 import type { DemandaLinha } from "../../lib/filtros";
 import DemandaForm, { CAMPOS_DEMANDA, type ValoresDemanda } from "../DemandaForm";
 import { Ajuda, notificar } from "../ui";
+import type { Comentario } from "./ComentariosAba";
 
 function Info({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   return <div className="info"><dt>{rotulo}</dt><dd>{children ?? "—"}</dd></div>;
@@ -104,7 +105,32 @@ function AtualizacaoRapida({ d, aoSalvar }: { d: DemandaLinha; aoSalvar: () => v
   );
 }
 
-export default function Resumo({ d, recarregar }: { d: DemandaLinha; recarregar: () => void }) {
+function ComentariosImportantes({ demandaId, abrir }: { demandaId: number; abrir: () => void }) {
+  const [lista, setLista] = useState<Comentario[]>([]);
+  useEffect(() => {
+    supabase.from("comentarios").select("*").eq("demanda_id", demandaId).eq("importante", true).order("criado_em", { ascending: false }).limit(3)
+      .then(({ data }) => setLista((data as Comentario[]) ?? []));
+  }, [demandaId]);
+  if (!lista.length) return null;
+  return (
+    <section className="cartao destaque">
+      <div className="linha linha-entre">
+        <h2>★ Comentários importantes</h2>
+        <button className="btn-link pequeno" onClick={abrir}>Ver todos os comentários</button>
+      </div>
+      <ul className="comentarios compactos">
+        {lista.map((c) => (
+          <li key={c.id}>
+            <p className="pre comentario-texto">{c.texto}</p>
+            <span className="sutil pequeno">{c.autor_nome} · {fmtDataHora(c.criado_em)}{c.editado_em ? " · editado" : ""}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export default function Resumo({ d, recarregar, abrirComentarios }: { d: DemandaLinha; recarregar: () => void; abrirComentarios: () => void }) {
   const { podeEditar, eGestor, eContratada } = useAuth();
   const [editando, setEditando] = useState(false);
   const nav = useNavigate();
@@ -154,6 +180,8 @@ export default function Resumo({ d, recarregar }: { d: DemandaLinha; recarregar:
         {d.situacao === "aguardando" && d.aguardando_o_que && <p><strong>Aguardando:</strong> {d.aguardando_o_que}</p>}
         {d.detalhamento && <p>{d.detalhamento}</p>}
       </section>
+
+      {!eContratada && <ComentariosImportantes demandaId={d.id} abrir={abrirComentarios} />}
 
       {podeEditar && <AtualizacaoRapida key={d.atualizado_em} d={d} aoSalvar={recarregar} />}
 

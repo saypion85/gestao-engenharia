@@ -53,6 +53,37 @@ Seções: identificação · clima e condição da área · efetivo (próprio/te
 
 Ciclo: Rascunho → Enviado → Revisado (sem/com ressalvas). Revisado = travado (só o Gestor reabre). Imprime ou salva em PDF com campos de assinatura.
 
+## Comentários (aba da demanda)
+
+- Para registrar fatos e informações importantes que toda a equipe deve ver.
+- **Escrevem:** Gestor e Engenheiro. **Leem:** toda a equipe interna. A contratada não vê os comentários.
+- Autor e data/hora são gravados pelo sistema e não podem ser alterados.
+- **Editar ou excluir:** somente o autor ou o Gestor. Toda edição fica marcada com quem editou e quando.
+- **Importante:** destaca o comentário e o mostra no Resumo da demanda (os 3 mais recentes).
+
+## Cronograma
+
+- **Na demanda (aba Cronograma):** "Criar cronograma" gera os itens com as etapas do fluxo da forma de execução. As datas já conhecidas entram como realizadas: data de recebimento e início/fim da execução. É possível incluir itens personalizados, como mobilização ou entrega de material.
+- Cada item tem **início e fim previstos** e **início e fim realizados**.
+- **Realizado automático:** quando a etapa da demanda muda, o sistema preenche o fim realizado da etapa anterior e o início realizado da nova, se ainda estiverem vazios. Ao concluir a demanda, fecha os itens em andamento. Tudo pode ser corrigido manualmente.
+- **Situação de cada item:**
+
+| Situação | Critério |
+|---|---|
+| Concluída no prazo | Tem fim realizado e ele é igual ou anterior ao fim previsto (ou não há fim previsto) |
+| Concluída com atraso | Fim realizado depois do fim previsto |
+| Em andamento | Tem início realizado, não tem fim, e hoje ainda não passou do fim previsto |
+| Atrasada | Tem início realizado, não tem fim, e hoje já passou do fim previsto |
+| Início atrasado | Ainda sem realizado, e hoje já passou do início previsto |
+| Programada | Sem realizado e com previsão futura |
+| Não realizada | Etapa que a demanda já ultrapassou sem registro de realização |
+| Sem previsão | Sem datas previstas |
+
+- **Desvio** = dias entre o fim previsto e o fim realizado (ou hoje, se ainda aberta e já vencida).
+- O gráfico mostra o previsto (contorno), o realizado (barra cheia; listrada quando ainda em andamento), a linha de hoje e a linha tracejada do prazo de conclusão. Há um aviso quando o término previsto passa do prazo de conclusão.
+- **Menu Cronograma:** uma linha por demanda. O previsto vai do primeiro início previsto ao último fim previsto; o realizado, do primeiro início realizado até o último fim, ou até hoje se ainda estiver aberto. Demandas com alguma etapa atrasada ficam em vermelho e aparecem primeiro. A página também lista as demandas que ainda não têm cronograma.
+- **Permissões:** Gestor e Engenheiro editam; equipe interna e contratada (só nas demandas da própria empresa) visualizam.
+
 ## Indicadores do painel
 
 O painel segue a estrutura do painel publicado no artefato (Visão geral → Pontos de ação → Tendência → Detalhamento), calculado sobre os dados do sistema. São contagens e proporções entre contagens; **não há percentual de avanço físico**. Os filtros do topo (responsável, local, execução, atenção, busca e situação) valem para todos os blocos, exceto "Atividades vencidas". "Ver N demandas na lista" abre exatamente os registros do recorte.
