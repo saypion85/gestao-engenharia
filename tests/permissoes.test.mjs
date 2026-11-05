@@ -252,3 +252,30 @@ test("cronograma: predecessoras na mesma demanda, sem ciclo; calendário por dem
   const { data: sobras } = await c.gestor.from("cronograma_dependencias").select("*").in("item_id", [id("B"), id("C")]);
   assert.equal(sobras.length, 0, "dependências removidas junto com a demanda");
 });
+
+test("histórico: autor automático; edição só pelo autor ou Gestor; automáticos bloqueados", async () => {
+  const { data: meu, error } = await c.engenheiro.from("historico").insert({ demanda_id: demOutra, texto: "Medição enviada.", autor_nome: "Falsário" }).select().single();
+  assert.ifError(error);
+  assert.equal(meu.autor_nome, "Luis Soares", "autor vem do login");
+  const ed = await c.engenheiro.from("historico").update({ texto: "Medição enviada ao fiscal." }).eq("id", meu.id).select().single();
+  assert.ifError(ed.error);
+  assert.ok(ed.data.editado_em);
+  assert.equal(ed.data.editado_por_nome, "Luis Soares");
+  const troca = await c.engenheiro.from("historico").update({ autor_id: null }).eq("id", meu.id);
+  assert.ok(troca.error, "autor não pode ser trocado");
+
+  const { data: doGestor } = await c.gestor.from("historico").insert({ demanda_id: demOutra, texto: "Decisão do gestor", tipo: "decisao" }).select().single();
+  const alheio = await c.engenheiro.from("historico").update({ texto: "alterado" }).eq("id", doGestor.id).select();
+  assert.equal(alheio.data?.length ?? 0, 0, "engenheiro não edita registro de outra pessoa");
+  const delAlheio = await c.engenheiro.from("historico").delete().eq("id", doGestor.id).select();
+  assert.equal(delAlheio.data?.length ?? 0, 0, "engenheiro não exclui registro de outra pessoa");
+  const g = await c.gestor.from("historico").update({ texto: "Medição enviada ao fiscal (revisado)." }).eq("id", meu.id).select().single();
+  assert.ifError(g.error);
+  assert.equal(g.data.editado_por_nome, "Gustavo Sipião", "gestor edita e fica registrado");
+
+  const { data: auto } = await c.engenheiro.from("historico").select("id").eq("demanda_id", demOutra).eq("tipo", "sistema").limit(1).single();
+  const editAuto = await c.gestor.from("historico").update({ texto: "x" }).eq("id", auto.id);
+  assert.match(editAuto.error?.message ?? "", /automáticos/, "registro automático não é editável");
+  const virarAuto = await c.engenheiro.from("historico").update({ tipo: "sistema" }).eq("id", meu.id);
+  assert.ok(virarAuto.error, "não transforma registro em automático");
+});

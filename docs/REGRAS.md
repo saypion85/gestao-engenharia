@@ -53,13 +53,19 @@ Seções: identificação · clima e condição da área · efetivo (próprio/te
 
 Ciclo: Rascunho → Enviado → Revisado (sem/com ressalvas). Revisado = travado (só o Gestor reabre). Imprime ou salva em PDF com campos de assinatura.
 
-## Comentários (aba da demanda)
+## Histórico (aba da demanda)
 
-- Para registrar fatos e informações importantes que toda a equipe deve ver.
-- **Escrevem:** Gestor e Engenheiro. **Leem:** toda a equipe interna. A contratada não vê os comentários.
-- Autor e data/hora são gravados pelo sistema e não podem ser alterados.
-- **Editar ou excluir:** somente o autor ou o Gestor. Toda edição fica marcada com quem editou e quando.
-- **Importante:** destaca o comentário e o mostra no Resumo da demanda (os 3 mais recentes).
+- **Registrar andamento** fica no topo da aba Histórico. Basta escrever o que aconteceu e, se for o caso, mudar situação, etapa ou prazo da próxima etapa. O registro aparece logo abaixo.
+- **Data do fato:** por padrão é hoje. Pode ser retroativa, nunca futura.
+- **Decisão importante:** destaca o registro, e o filtro "Só decisões" lista só esses.
+- **Quem pode:**
+  - escrever: Gestor e Engenheiro;
+  - ler: toda a equipe interna (a contratada não vê o histórico);
+  - editar ou excluir: só o autor ou o Gestor. Toda edição fica marcada com quem editou e quando.
+- Autor e data/hora de registro são gravados pelo sistema e não podem ser alterados.
+- **Registros automáticos** (mudança de situação, etapa, responsável e prazo de conclusão) não podem ser editados, porque são o rastro das alterações. O Gestor pode excluí-los.
+- O **Resumo** da demanda mostra os 3 últimos andamentos e o botão "Registrar andamento", que leva ao Histórico.
+- A antiga aba Comentários foi retirada. Comentários já existentes foram copiados para o histórico com autor e data originais; os marcados como importantes viraram "Decisão".
 
 ## Cronograma
 

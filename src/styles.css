@@ -520,7 +520,22 @@ details.dados summary { cursor: pointer; color: var(--texto-sutil); }
   .kpi-val { font-size: 1.8rem; }
 }
 
-/* ---------- Comentários ---------- */
+/* ---------- Histórico: registrar e editar ---------- */
+.registrar { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--trl-cinza-200); border-top: 3px solid var(--trl-vermelho); border-radius: var(--trl-radius); padding: 14px; margin: 8px 0 12px; background: var(--trl-cinza-50); }
+.registrar h3 { margin: 0; font-size: 1rem; display: flex; align-items: center; gap: 6px; }
+.registrar textarea { background: var(--trl-branco); }
+.campo-largo-2 { grid-column: span 2; }
+.campo-inline { flex-direction: row; align-items: center; gap: 6px; margin: 0; }
+.campo-inline input { width: auto; min-height: 34px !important; padding: 4px 8px !important; }
+.historico-filtro { margin: 4px 0 0; }
+.historico-filtro select { width: auto; min-height: 36px; padding: 5px 10px; }
+.link-acao { color: var(--trl-vermelho); font-weight: 600; }
+.ultimos { list-style: none; padding: 0; margin: 4px 0 8px; }
+.ultimos li { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--trl-cinza-100); }
+.ultimos p { margin: 2px 0; }
+@media (max-width: 760px) { .ultimos li { grid-template-columns: 1fr; gap: 2px; } .campo-largo-2 { grid-column: auto; } }
+
+/* ---------- Comentários (legado) ---------- */
 .novo-comentario { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--trl-cinza-100); }
 .comentarios { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
 .comentario { border: 1px solid var(--trl-cinza-200); border-radius: var(--trl-radius); padding: 12px 14px; }

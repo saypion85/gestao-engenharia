@@ -1,12 +1,12 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase, mensagemErro } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
-import { CATEGORIAS, ESFORCO, ETAPAS, FLUXO, FORMAS, MD_SITUACOES, SITUACOES, diasAte, fmtData, fmtDataHora, hojeISO, type Etapa, type Situacao } from "../../lib/dominio";
+import { CATEGORIAS, ESFORCO, ETAPAS, FLUXO, FORMAS, MD_SITUACOES, diasAte, fmtData } from "../../lib/dominio";
 import type { DemandaLinha } from "../../lib/filtros";
 import DemandaForm, { CAMPOS_DEMANDA, type ValoresDemanda } from "../DemandaForm";
-import { Ajuda, notificar } from "../ui";
-import type { Comentario } from "./ComentariosAba";
+import { notificar } from "../ui";
+import type { Registro } from "./HistoricoAba";
 
 function Info({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   return <div className="info"><dt>{rotulo}</dt><dd>{children ?? "—"}</dd></div>;
@@ -27,110 +27,41 @@ function Fluxo({ d }: { d: DemandaLinha }) {
   );
 }
 
-function AtualizacaoRapida({ d, aoSalvar }: { d: DemandaLinha; aoSalvar: () => void }) {
-  const [texto, setTexto] = useState("");
-  const [situacao, setSituacao] = useState<Situacao>(d.situacao);
-  const [aguardando, setAguardando] = useState(d.aguardando_o_que ?? "");
-  const [etapa, setEtapa] = useState<Etapa>(d.etapa);
-  const [prazo, setPrazo] = useState(d.prazo_proxima_etapa ?? "");
-  const [decisao, setDecisao] = useState(false);
-  const [salvando, setSalvando] = useState(false);
-  const [erro, setErro] = useState("");
-
-  async function registrar(e: FormEvent) {
-    e.preventDefault();
-    setErro("");
-    const mudou = situacao !== d.situacao || etapa !== d.etapa || (prazo || null) !== d.prazo_proxima_etapa || (aguardando || null) !== d.aguardando_o_que;
-    if (!texto.trim() && !mudou) return setErro("Escreva o que aconteceu ou altere a situação/etapa.");
-    setSalvando(true);
-    try {
-      if (texto.trim()) {
-        const { error } = await supabase.from("historico").insert({ demanda_id: d.id, texto: texto.trim(), data: hojeISO(), tipo: decisao ? "decisao" : "atualizacao" });
-        if (error) throw error;
-      }
-      if (mudou) {
-        const etapaFinal = situacao === "concluida" ? "concluida" : etapa;
-        const { error } = await supabase.from("demandas").update({
-          situacao, etapa: etapaFinal, prazo_proxima_etapa: prazo || null,
-          aguardando_o_que: situacao === "aguardando" ? aguardando || null : null,
-        }).eq("id", d.id);
-        if (error) throw error;
-      }
-      setTexto("");
-      setDecisao(false);
-      notificar("Atualização registrada.");
-      aoSalvar();
-    } catch (er) {
-      setErro(mensagemErro(er));
-    } finally {
-      setSalvando(false);
-    }
-  }
-
-  return (
-    <form className="cartao atualizacao" onSubmit={registrar}>
-      <h2>Registrar andamento <Ajuda>Escreva o que aconteceu hoje. Se a situação ou a etapa mudou, ajuste aqui mesmo: tudo fica no histórico com seu nome e a data.</Ajuda></h2>
-      <textarea rows={3} placeholder="O que aconteceu? Ex.: Cotação recebida de 3 fornecedores; enviado para aprovação."
-        value={texto} onChange={(e) => setTexto(e.target.value)} aria-label="Texto da atualização" />
-      <div className="grade-4">
-        <label className="campo">
-          <span className="campo-rotulo">Situação</span>
-          <select value={situacao} onChange={(e) => setSituacao(e.target.value as Situacao)}>
-            {Object.entries(SITUACOES).map(([k, n]) => <option key={k} value={k}>{n}</option>)}
-          </select>
-        </label>
-        {situacao === "aguardando" && (
-          <label className="campo">
-            <span className="campo-rotulo">Aguardando o quê/quem?</span>
-            <input value={aguardando} onChange={(e) => setAguardando(e.target.value)} />
-          </label>
-        )}
-        <label className="campo">
-          <span className="campo-rotulo">Etapa</span>
-          <select value={situacao === "concluida" ? "concluida" : etapa} disabled={situacao === "concluida"} onChange={(e) => setEtapa(e.target.value as Etapa)}>
-            {FLUXO[d.forma_execucao].map((k) => <option key={k} value={k}>{ETAPAS[k]}</option>)}
-          </select>
-        </label>
-        <label className="campo">
-          <span className="campo-rotulo">Prazo da próxima etapa</span>
-          <input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} />
-        </label>
-      </div>
-      <div className="linha linha-entre">
-        <label className="check-linha pequeno"><input type="checkbox" checked={decisao} onChange={(e) => setDecisao(e.target.checked)} /> Marcar como decisão importante</label>
-        <button className="btn btn-primario" disabled={salvando}>{salvando ? "Registrando…" : "Registrar"}</button>
-      </div>
-      {erro && <div className="erro-form" role="alert">{erro}</div>}
-    </form>
-  );
-}
-
-function ComentariosImportantes({ demandaId, abrir }: { demandaId: number; abrir: () => void }) {
-  const [lista, setLista] = useState<Comentario[]>([]);
+function UltimosAndamentos({ demandaId, abrir }: { demandaId: number; abrir: () => void }) {
+  const { podeEditar } = useAuth();
+  const [lista, setLista] = useState<Registro[] | null>(null);
   useEffect(() => {
-    supabase.from("comentarios").select("*").eq("demanda_id", demandaId).eq("importante", true).order("criado_em", { ascending: false }).limit(3)
-      .then(({ data }) => setLista((data as Comentario[]) ?? []));
+    supabase.from("historico").select("*").eq("demanda_id", demandaId).neq("tipo", "sistema")
+      .order("data", { ascending: false }).order("criado_em", { ascending: false }).limit(3)
+      .then(({ data }) => setLista((data as Registro[]) ?? []));
   }, [demandaId]);
-  if (!lista.length) return null;
+  if (!lista) return null;
   return (
-    <section className="cartao destaque">
+    <section className="cartao atualizacao">
       <div className="linha linha-entre">
-        <h2>★ Comentários importantes</h2>
-        <button className="btn-link pequeno" onClick={abrir}>Ver todos os comentários</button>
+        <h2>Últimos andamentos</h2>
+        <button className={podeEditar ? "btn btn-primario" : "btn"} onClick={abrir}>{podeEditar ? "Registrar andamento" : "Ver histórico"}</button>
       </div>
-      <ul className="comentarios compactos">
-        {lista.map((c) => (
-          <li key={c.id}>
-            <p className="pre comentario-texto">{c.texto}</p>
-            <span className="sutil pequeno">{c.autor_nome} · {fmtDataHora(c.criado_em)}{c.editado_em ? " · editado" : ""}</span>
-          </li>
-        ))}
-      </ul>
+      {lista.length === 0 ? <p className="sutil">Nenhum andamento registrado ainda.</p> : (
+        <ul className="ultimos">
+          {lista.map((r) => (
+            <li key={r.id}>
+              <span className="lt-data">{fmtData(r.data)}</span>
+              <div>
+                {r.tipo === "decisao" && <span className="badge badge-critico">Decisão</span>}
+                <p className="pre">{r.texto.length > 280 ? r.texto.slice(0, 278) + "…" : r.texto}</p>
+                <span className="sutil pequeno">{r.autor_nome}{r.editado_em ? " · editado" : ""}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {lista.length > 0 && <button className="btn-link pequeno" onClick={abrir}>Ver histórico completo →</button>}
     </section>
   );
 }
 
-export default function Resumo({ d, recarregar, abrirComentarios }: { d: DemandaLinha; recarregar: () => void; abrirComentarios: () => void }) {
+export default function Resumo({ d, recarregar, abrirHistorico }: { d: DemandaLinha; recarregar: () => void; abrirHistorico: () => void }) {
   const { podeEditar, eGestor, eContratada } = useAuth();
   const [editando, setEditando] = useState(false);
   const nav = useNavigate();
@@ -181,9 +112,7 @@ export default function Resumo({ d, recarregar, abrirComentarios }: { d: Demanda
         {d.detalhamento && <p>{d.detalhamento}</p>}
       </section>
 
-      {!eContratada && <ComentariosImportantes demandaId={d.id} abrir={abrirComentarios} />}
-
-      {podeEditar && <AtualizacaoRapida key={d.atualizado_em} d={d} aoSalvar={recarregar} />}
+      {!eContratada && <UltimosAndamentos demandaId={d.id} abrir={abrirHistorico} />}
 
       <section className="cartao">
         <div className="linha linha-entre">

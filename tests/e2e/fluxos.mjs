@@ -107,37 +107,37 @@ await eng.locator(".demanda-cabecalho .badge", { hasText: "Crítico" }).waitFor(
 const urlDemanda = eng.url();
 passo("demanda criada com classe Crítico e ranking");
 
-// atualização rápida
-await eng.getByLabel("Texto da atualização").fill("Vistoria realizada; risco confirmado. Área isolada.");
-await eng.locator(".atualizacao label.campo", { hasText: "Situação" }).locator("select").selectOption("em_andamento");
-await eng.locator(".atualizacao label.campo", { hasText: "Etapa" }).locator("select").selectOption("estudo_projeto");
-await eng.getByRole("button", { name: "Registrar" }).click();
-await eng.getByText("Atualização registrada.").waitFor();
+// registrar andamento dentro do Histórico: aparece logo abaixo
+await eng.getByRole("button", { name: "Registrar andamento" }).click();
+await eng.getByRole("tab", { name: "Histórico", selected: true }).waitFor();
+await eng.getByLabel("Texto do andamento").fill("Vistoria realizada; risco confirmado. Área isolada.");
+await eng.locator(".registrar label.campo", { hasText: "Situação" }).locator("select").selectOption("em_andamento");
+await eng.locator(".registrar label.campo", { hasText: "Etapa" }).locator("select").selectOption("estudo_projeto");
+await eng.getByRole("button", { name: "Registrar", exact: true }).click();
+await eng.getByText("Andamento registrado.").waitFor();
+await eng.locator(".linha-tempo li", { hasText: "Vistoria realizada" }).waitFor();
 await eng.locator(".linha-badges .badge", { hasText: "Em andamento" }).waitFor();
-await eng.screenshot({ path: `${OUT}/05-demanda-resumo.png`, fullPage: true });
-passo("registrar andamento atualiza situação/etapa em uma ação");
-
-// histórico
-await eng.getByRole("tab", { name: "Histórico" }).click();
-await eng.getByText("Vistoria realizada").waitFor();
+await eng.getByLabel("Texto do andamento").fill("Operação liberou a área somente aos sábados.");
+await eng.getByText("Marcar como decisão importante").click();
+await eng.getByRole("button", { name: "Registrar", exact: true }).click();
+await eng.locator(".linha-tempo li", { hasText: "somente aos sábados" }).getByText("Decisão").waitFor();
 await eng.getByLabel("Filtrar histórico").selectOption("todos");
 await eng.getByText(/Situação: Não iniciada → Em andamento/).waitFor();
-passo("histórico tem o registro manual e a mudança automática");
+assert.equal(await eng.locator(".linha-tempo li.lt-sistema").getByRole("button", { name: "editar" }).count(), 0, "registro automático não é editável");
+passo("registrar andamento no Histórico: aparece logo abaixo, com decisão e mudança automática");
 
-// comentários
-await eng.getByRole("tab", { name: "Comentários" }).click();
-await eng.getByLabel("Novo comentário").fill("Operação liberou a área somente aos sábados.");
-await eng.getByText("Marcar como importante (aparece no Resumo)").click();
-await eng.getByRole("button", { name: "Publicar comentário" }).click();
-await eng.locator(".comentario", { hasText: "somente aos sábados" }).getByText("★ Importante").waitFor();
-await eng.locator(".comentario", { hasText: "somente aos sábados" }).getByRole("button", { name: "Editar" }).click();
-await eng.getByLabel("Editar comentário").fill("Operação liberou a área somente aos sábados, das 7h às 17h.");
-await eng.locator(".comentario").getByRole("button", { name: "Salvar" }).click();
-await eng.locator(".comentario", { hasText: "das 7h às 17h" }).getByText(/editado em/).waitFor();
-await eng.screenshot({ path: `${OUT}/05b-comentarios.png` });
+// editar o próprio registro
+const reg = eng.locator(".linha-tempo li", { hasText: "somente aos sábados" });
+await reg.getByRole("button", { name: "editar" }).click();
+await eng.getByLabel("Editar registro").fill("Operação liberou a área somente aos sábados, das 7h às 17h.");
+await eng.locator(".linha-tempo li").getByRole("button", { name: "Salvar" }).click();
+await eng.locator(".linha-tempo li", { hasText: "das 7h às 17h" }).getByText(/editado em/).waitFor();
+await eng.screenshot({ path: `${OUT}/05b-historico.png`, fullPage: true });
 await eng.getByRole("tab", { name: "Resumo" }).click();
-await eng.locator(".cartao", { hasText: "Comentários importantes" }).getByText("das 7h às 17h").waitFor();
-passo("comentário com autor/data, editado pelo autor e destacado no Resumo");
+await eng.locator(".cartao", { hasText: "Últimos andamentos" }).getByText("das 7h às 17h").waitFor();
+assert.equal(await eng.getByRole("tab", { name: "Comentários" }).count(), 0, "aba Comentários removida");
+await eng.screenshot({ path: `${OUT}/05-demanda-resumo.png`, fullPage: true });
+passo("autor edita o próprio registro (marcado como editado) e o Resumo mostra os últimos andamentos");
 
 // cronograma: durações, predecessoras e calendário
 await eng.getByRole("tab", { name: "Cronograma" }).click();
@@ -274,7 +274,11 @@ await con.getByRole("heading", { name: /Painel de Engenharia/ }).waitFor();
 await con.goto(urlDemanda);
 await con.locator(".demanda-cabecalho").waitFor();
 assert.equal(await con.getByRole("button", { name: "Editar" }).count(), 0);
-assert.equal(await con.getByLabel("Texto da atualização").count(), 0);
+assert.equal(await con.getByRole("button", { name: "Registrar andamento" }).count(), 0);
+await con.getByRole("tab", { name: "Histórico" }).click();
+await con.locator(".linha-tempo li").first().waitFor();
+assert.equal(await con.getByLabel("Texto do andamento").count(), 0, "consulta não registra");
+assert.equal(await con.getByRole("button", { name: "editar" }).count(), 0, "consulta não edita");
 assert.equal(await con.getByRole("tab", { name: "Custos" }).count(), 0);
 passo("consulta: só leitura, sem custos");
 

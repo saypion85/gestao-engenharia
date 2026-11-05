@@ -11,10 +11,9 @@ import CustosAba from "../components/demanda/CustosAba";
 import HistoricoAba from "../components/demanda/HistoricoAba";
 import DocumentosAba from "../components/demanda/DocumentosAba";
 import RdosAba from "../components/demanda/RdosAba";
-import ComentariosAba from "../components/demanda/ComentariosAba";
 import CronogramaAba from "../components/demanda/CronogramaAba";
 
-type Aba = "resumo" | "atividades" | "cronograma" | "comentarios" | "contratacao" | "custos" | "historico" | "documentos" | "rdo";
+type Aba = "resumo" | "atividades" | "cronograma" | "contratacao" | "custos" | "historico" | "documentos" | "rdo";
 
 export default function DemandaDetalhe() {
   const { id } = useParams();
@@ -39,7 +38,6 @@ export default function DemandaDetalhe() {
     { id: "resumo", nome: "Resumo", mostrar: true },
     { id: "atividades", nome: "Atividades", mostrar: true },
     { id: "cronograma", nome: "Cronograma", mostrar: true },
-    { id: "comentarios", nome: "Comentários", mostrar: !eContratada },
     { id: "contratacao", nome: "Contratação", mostrar: !eContratada && d.forma_execucao === "contratada" },
     { id: "custos", nome: "Custos", mostrar: eGestor },
     { id: "historico", nome: "Histórico", mostrar: !eContratada },
@@ -74,13 +72,12 @@ export default function DemandaDetalhe() {
       </nav>
 
       <div className="aba-conteudo">
-        {aba === "resumo" && <Resumo d={d} recarregar={recarregar} abrirComentarios={() => setParams({ aba: "comentarios" }, { replace: true })} />}
+        {aba === "resumo" && <Resumo d={d} recarregar={recarregar} abrirHistorico={() => setParams({ aba: "historico" }, { replace: true })} />}
         {aba === "atividades" && <AtividadesAba demanda={d} />}
         {aba === "cronograma" && <CronogramaAba d={d} />}
-        {aba === "comentarios" && <ComentariosAba demandaId={d.id} />}
         {aba === "contratacao" && <ContratacaoAba d={d} recarregar={recarregar} />}
         {aba === "custos" && <CustosAba d={d} />}
-        {aba === "historico" && <HistoricoAba demandaId={d.id} />}
+        {aba === "historico" && <HistoricoAba d={d} recarregar={recarregar} />}
         {aba === "documentos" && <DocumentosAba demandaId={d.id} />}
         {aba === "rdo" && <RdosAba d={d} />}
       </div>
