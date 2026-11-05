@@ -42,21 +42,33 @@ async function sessao(email, opts = {}) {
 
 // ---------- Engenheiro ----------
 const { page: eng } = await sessao("engenheiro@teste.local");
-await eng.getByRole("heading", { name: "Painel" }).waitFor();
-await eng.getByText("Onde agir").waitFor();
+await eng.getByRole("heading", { name: /Painel de Engenharia/ }).waitFor();
+await eng.locator(".kpi").first().waitFor();
 await eng.waitForTimeout(800);
 await eng.screenshot({ path: `${OUT}/02-painel.png`, fullPage: true });
 passo("painel carrega");
 
-// indicador → lista filtrada com o mesmo número
-const ind = eng.locator(".indicador", { hasText: "Sem avaliação de prioridade" });
-const valorInd = Number(await ind.locator(".ind-valor").innerText());
-await ind.click();
+// indicador do painel → filtra o painel → "Ver N demandas na lista" mostra os mesmos registros
+const chip = eng.locator(".chip-alerta", { hasText: "Sem avaliação de prioridade" });
+const valorInd = Number(await chip.locator("strong").innerText());
+await chip.click();
+await eng.locator(".kpi", { hasText: "Total de demandas" }).locator(".kpi-val").filter({ hasText: String(valorInd) }).waitFor();
+await eng.getByRole("link", { name: new RegExp(`Ver ${valorInd} demanda`) }).click();
 await eng.getByRole("heading", { name: "Demandas" }).waitFor();
 await eng.waitForSelector(".tabela tbody tr");
 const qtdLinhas = await eng.locator(".tabela tbody tr").count();
 assert.equal(qtdLinhas, valorInd, "número do indicador = registros na lista");
-passo(`indicador "Sem avaliação" (${valorInd}) abre a lista com os mesmos registros`);
+
+// KPI clicável filtra o painel e a contagem bate com a lista
+await eng.goto(BASE);
+const kpiMD = eng.locator(".kpi", { hasText: "Contratadas sem MD" });
+const nMD = Number(await kpiMD.locator(".kpi-val").innerText());
+await kpiMD.click();
+await eng.getByText(/Recorte ativo — Contratadas sem MD emitido/).waitFor();
+await eng.getByRole("link", { name: new RegExp(`Ver ${nMD} demanda`) }).click();
+await eng.waitForSelector(".tabela tbody tr");
+assert.equal(await eng.locator(".tabela tbody tr").count(), nMD, "KPI sem MD = lista");
+passo(`indicadores do painel (sem avaliação ${valorInd}, sem MD ${nMD}) batem com a lista de demandas`);
 
 // busca
 await eng.getByRole("link", { name: "Demandas", exact: true }).click();
@@ -191,8 +203,9 @@ await eng.getByText("Revisão registrada").waitFor();
 await eng.getByText(/Revisado por Luis Soares/).waitFor();
 passo("engenheiro aponta e revisa; RDO travado");
 await eng.goto(BASE);
-await eng.locator(".indicador", { hasText: "Com impedimento" }).waitFor();
-assert.ok(Number(await eng.locator(".indicador", { hasText: "Com impedimento" }).locator(".ind-valor").innerText()) >= 2);
+await eng.locator(".chip-alerta", { hasText: "Com impedimento" }).waitFor();
+assert.ok(Number(await eng.locator(".chip-alerta", { hasText: "Com impedimento" }).locator("strong").innerText()) >= 2);
+await eng.locator(".ponto", { hasText: "Impedimentos registrados" }).waitFor();
 passo("impedimentos de atividade e de RDO aparecem no painel");
 
 await ctd.goto(urlRdo);
@@ -202,7 +215,7 @@ passo("contratada vê o apontamento e o RDO travado");
 
 // ---------- Consulta ----------
 const { page: con } = await sessao("consulta@teste.local");
-await con.getByRole("heading", { name: "Painel" }).waitFor();
+await con.getByRole("heading", { name: /Painel de Engenharia/ }).waitFor();
 await con.goto(urlDemanda);
 await con.locator(".demanda-cabecalho").waitFor();
 assert.equal(await con.getByRole("button", { name: "Editar" }).count(), 0);
@@ -212,8 +225,28 @@ passo("consulta: só leitura, sem custos");
 
 // ---------- Gestor ----------
 const { page: ges } = await sessao("gestor@teste.local");
-await ges.getByRole("heading", { name: "Painel" }).waitFor();
-await ges.getByText("Economia (Save)").waitFor();
+await ges.getByRole("heading", { name: /Painel de Engenharia/ }).waitFor();
+await ges.getByText("Financeiro informado").waitFor();
+// ponto de ação: Gestor ajusta a ação e cria um ponto manual
+const pontoParado = ges.locator(".ponto", { hasText: "Carteira sem movimentação" });
+await pontoParado.getByRole("button", { name: "Ajustar" }).click();
+await pontoParado.getByLabel("Nota do Gestor (opcional)").fill("Revisar na reunião de segunda.");
+await pontoParado.getByRole("button", { name: "Salvar" }).click();
+await ges.getByText("Revisar na reunião de segunda.").waitFor();
+await ges.getByRole("button", { name: "+ Ponto manual" }).click();
+await ges.getByLabel("Título").fill("Contrato de manutenção predial");
+await ges.getByLabel("Diagnóstico").fill("Renovação vence em dezembro.");
+await ges.locator(".ponto", { hasText: "Novo ponto manual" }).getByRole("button", { name: "Salvar" }).click();
+await ges.locator(".ponto", { hasText: "Contrato de manutenção predial" }).waitFor();
+// tema escuro
+await ges.getByRole("button", { name: /Escuro/ }).click();
+assert.equal(await ges.evaluate(() => document.documentElement.dataset.theme), "dark");
+await ges.reload();
+await ges.locator(".kpi").first().waitFor();
+assert.equal(await ges.evaluate(() => document.documentElement.dataset.theme), "dark", "tema fica salvo");
+await ges.screenshot({ path: `${OUT}/10b-painel-escuro.png` });
+await ges.getByRole("button", { name: /Claro/ }).click();
+passo("gestor ajusta ponto de ação, cria ponto manual e alterna o tema (salvo no navegador)");
 await ges.goto(`${BASE}/demandas?situacao=todas&q=central%20de%20residuos`);
 await ges.waitForSelector(".tabela tbody tr");
 await ges.locator(".tabela tbody tr a").first().click();
@@ -233,18 +266,18 @@ await m.goto(BASE);
 await m.getByLabel("E-mail").fill("engenheiro@teste.local");
 await m.getByLabel("Senha").fill(SENHA);
 await m.getByRole("button", { name: "Entrar" }).click();
-await m.getByRole("heading", { name: "Painel" }).waitFor();
+await m.getByRole("heading", { name: /Painel de Engenharia/ }).waitFor();
 await m.waitForTimeout(600);
-const largura = await m.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+const largura = await m.evaluate(() => [document.documentElement.scrollWidth, screen.width]);
 assert.ok(largura[0] <= largura[1] + 1, `sem rolagem horizontal no celular (${largura})`);
 await m.screenshot({ path: `${OUT}/12-celular-painel.png` });
 await m.getByRole("button", { name: "Abrir menu" }).click();
-await m.getByRole("link", { name: "Demandas" }).click();
+await m.getByRole("link", { name: "Demandas", exact: true }).click();
 await m.waitForSelector(".cartao-demanda");
 await m.screenshot({ path: `${OUT}/13-celular-lista.png` });
 await m.goto(urlDemanda);
 await m.locator(".demanda-cabecalho").waitFor();
-const largura2 = await m.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+const largura2 = await m.evaluate(() => [document.documentElement.scrollWidth, screen.width]);
 assert.ok(largura2[0] <= largura2[1] + 1, `ficha sem rolagem horizontal (${largura2})`);
 await m.screenshot({ path: `${OUT}/14-celular-demanda.png`, fullPage: true });
 await m.goto(urlRdo);

@@ -55,23 +55,39 @@ Ciclo: Rascunho → Enviado → Revisado (sem/com ressalvas). Revisado = travado
 
 ## Indicadores do painel
 
-Todos são contagens de registros reais; **não há percentual de avanço**. Cada número abre a lista exata de demandas que o compõem.
+O painel segue a estrutura do painel publicado no artefato (Visão geral → Pontos de ação → Tendência → Detalhamento), calculado sobre os dados do sistema. São contagens e proporções entre contagens; **não há percentual de avanço físico**. Os filtros do topo (responsável, local, execução, atenção, busca e situação) valem para todos os blocos, exceto "Atividades vencidas". "Ver N demandas na lista" abre exatamente os registros do recorte.
+
+**Carteira ativa** = Em andamento + Aguardando + Não iniciada. As suspensas ficam fora porque estão pausadas, mas continuam no ranking. **Aberta** = qualquer situação diferente de Concluída e Cancelada.
 
 | Indicador | Critério |
 |---|---|
-| Abertas | Situação diferente de Concluída e Cancelada |
-| Em andamento / Aguardando / Suspensas / Concluídas | Situação igual à do indicador |
-| Atrasadas | Aberta e prazo de conclusão anterior a hoje |
-| Vencendo em 7 dias | Aberta e prazo de conclusão **ou** da próxima etapa entre hoje e 7 dias |
-| Sem atualização há +15 dias | Aberta e último registro no histórico há mais de 15 dias |
-| Sem avaliação de prioridade | Aberta sem probabilidade e severidade |
+| Total de demandas | Todas as do recorte |
+| Carteira ativa | Situação Em andamento, Aguardando ou Não iniciada |
+| Concluídas | Situação Concluída. Percentual = concluídas ÷ (total − suspensas − canceladas) |
+| Suspensas / canceladas | Situação Suspensa ou Cancelada |
+| Contratadas sem MD | Ativa, serviço contratado, MD a elaborar / em elaboração / em validação / não informado |
+| Contratadas sem RMS | Ativa, serviço contratado, nenhuma RMS não cancelada |
+| Paradas +30 dias | Ativa com último registro no histórico há mais de 30 dias, ou sem nenhum registro |
+| Prazo vencido | Ativa com prazo de conclusão anterior a hoje |
+| Prazo da próxima etapa vencido | Ativa com prazo da próxima etapa anterior a hoje |
+| Vencendo em 7 dias | Ativa com prazo de conclusão ou da próxima etapa entre hoje e 7 dias |
+| Aguardando aprovação | Ativa na etapa Aprovação |
 | Com impedimento | Atividade/pendência aberta marcada como impedimento, ou ocorrência de impedimento em RDO dos últimos 30 dias |
-| Acompanhamento gerencial | Aberta e marcada para acompanhamento gerencial |
-| Por classe / etapa / responsável / forma | Contagem das abertas em cada grupo |
-| Save (só Gestor) | Soma do Save das demandas com orçado externo |
-| Armazenamento | Soma do tamanho dos arquivos enviados ÷ 1 GB |
+| Sem avaliação de prioridade | Aberta (inclui suspensas) sem probabilidade e severidade |
+| Acompanhamento gerencial | Aberta marcada para acompanhamento gerencial |
+| Entradas × conclusões | Entrada = mês de recebimento (ou do 1º registro no histórico); conclusão = mês da data de conclusão; saldo = entradas − conclusões acumuladas. Últimos 12 meses |
+| Tempo sem movimentação | Faixas de dias desde o último registro no histórico (carteira ativa) |
+| Carteira por responsável / local | Ativas por situação; concluídas entre parênteses |
+| Prontidão documental | Contratadas ativas: MD (emitido, em elaboração, não informado, não necessário) × RMS (com/sem) |
+| Onde está cada demanda | Ativas por etapa, destacando prazo da próxima etapa vencido; e os motivos de "Aguardando o quê/quem" |
+| Financeiro (só Gestor) | Somas das demandas do recorte com valor; Save = orçado externo − custo realizado total |
+| Armazenamento | Soma do tamanho dos arquivos ÷ 1 GB |
 
-Limiares (7 dias, 15 dias, 30 dias) ficam em `src/lib/dominio.ts` e podem ser ajustados.
+**Pontos de ação** são gerados por regras sobre o recorte: paradas, prazos vencidos, impedimentos, gargalo documental, aprovações, próximas etapas vencidas, concentração (uma pessoa com 50% ou mais das ativas, quando há 6 ou mais ativas), fila maior que a execução e demandas fora do ranking. O Gestor pode ajustar o texto da ação, incluir uma nota, ocultar um ponto ou criar pontos manuais. Esses ajustes ficam salvos no banco e são vistos por toda a equipe interna.
+
+O **tema claro/escuro** é escolhido por cada pessoa no topo da tela e fica salvo no navegador. A impressão sai sempre no tema claro.
+
+Limiares (7 e 30 dias) ficam em `src/lib/dominio.ts`.
 
 ## De-para: planilha → sistema
 

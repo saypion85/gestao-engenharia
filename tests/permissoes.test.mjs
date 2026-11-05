@@ -164,3 +164,16 @@ test("gestão de usuários: só o Gestor usa a função", async () => {
   assert.ok(login.error, "usuário bloqueado não entra");
   await c.gestor.functions.invoke("admin-usuarios", { body: { acao: "atualizar", id: alvo.id, ativo: true } });
 });
+
+test("pontos de ação do painel: só o Gestor grava; contratada não lê", async () => {
+  const g = await c.gestor.from("painel_pontos").upsert({ id: "teste-permissao", manual: true, titulo: "T", diagnostico: "D" }).select().single();
+  assert.ifError(g.error);
+  assert.equal(g.data.atualizado_por_nome, "Gustavo Sipião");
+  const e = await c.engenheiro.from("painel_pontos").insert({ id: "x-eng", manual: true, titulo: "x" });
+  assert.ok(e.error, "engenheiro não grava");
+  const { data: lidos } = await c.engenheiro.from("painel_pontos").select("id").eq("id", "teste-permissao");
+  assert.equal(lidos.length, 1, "engenheiro lê");
+  const { data: ctd } = await c.contratada.from("painel_pontos").select("id");
+  assert.equal(ctd.length, 0, "contratada não lê");
+  await c.gestor.from("painel_pontos").delete().eq("id", "teste-permissao");
+});

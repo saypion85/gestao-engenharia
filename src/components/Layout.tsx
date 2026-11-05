@@ -2,10 +2,13 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../lib/auth";
 import { PAPEIS } from "../lib/dominio";
+import { aplicarTema, temaSalvo, type Tema } from "../lib/tema";
 
 export default function Layout() {
   const { perfil, sair, eGestor, eContratada } = useAuth();
   const [menu, setMenu] = useState(false);
+  const [tema, setTema] = useState<Tema>(temaSalvo());
+  const trocarTema = () => { const t: Tema = tema === "dark" ? "light" : "dark"; aplicarTema(t); setTema(t); };
   const loc = useLocation();
   useEffect(() => setMenu(false), [loc.pathname]);
 
@@ -36,6 +39,9 @@ export default function Layout() {
                 <span className="usuario-nome">{perfil?.nome}</span>
                 <span className="usuario-papel">{perfil && PAPEIS[perfil.papel]}</span>
               </NavLink>
+              <button className="btn-tema" onClick={trocarTema} aria-pressed={tema === "dark"} title="Alternar tema claro/escuro">
+                {tema === "dark" ? "☀ Claro" : "☾ Escuro"}
+              </button>
               <button className="btn-sair" onClick={sair}>Sair</button>
             </div>
           </nav>

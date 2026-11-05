@@ -84,6 +84,7 @@ export default function Demandas() {
         <div className={`filtros-linha filtros-recolhiveis${verFiltros ? " aberto" : ""}`}>
           <select value={f.situacao} onChange={(e) => mudar({ situacao: e.target.value })} aria-label="Situação">
             <option value="abertas">Abertas</option>
+            <option value="ativas">Ativas (sem suspensas)</option>
             <option value="todas">Todas as situações</option>
             {Object.entries(SITUACOES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
@@ -121,6 +122,7 @@ export default function Demandas() {
             <button className="btn btn-link" onClick={() => { setBusca(""); setParams(new URLSearchParams(), { replace: true }); }}>Limpar filtros</button>
           )}
         </div>
+        {f.doc && <p className="sutil pequeno">Recorte do painel: contratadas ativas com MD “{f.doc.split("|")[0]}” e “{f.doc.split("|")[1]}”.</p>}
         {f.marcador && MARCADORES[f.marcador as keyof typeof MARCADORES] && (
           <p className="sutil pequeno">Critério: {MARCADORES[f.marcador as keyof typeof MARCADORES].criterio}</p>
         )}

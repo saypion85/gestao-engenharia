@@ -182,6 +182,6 @@ export function fmtBytes(b: number): string {
 /** Limiares usados no painel (explicados na tela). */
 export const LIMITES = {
   diasVencendo: 7,
-  diasSemAtualizacao: 15,
+  diasSemAtualizacao: 30,
   armazenamentoBytes: 1024 * 1024 * 1024, // 1 GB do plano gratuito
 };

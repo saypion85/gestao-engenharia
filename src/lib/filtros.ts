@@ -50,38 +50,83 @@ export interface DemandaLinha {
   atrasada: boolean;
   dias_sem_atualizacao: number | null;
   ultima_atualizacao: string | null;
+  primeira_atualizacao: string | null;
+  rms_validas: number;
   atualizado_em: string;
   criado_em: string;
 }
 
-export type Marcador = "atrasada" | "vencendo" | "sem_atualizacao" | "sem_avaliacao" | "impedimento" | "acomp";
+/** Carteira ativa = em andamento, aguardando ou não iniciada (suspensas ficam fora: estão pausadas). */
+export const SITUACOES_ATIVAS: Situacao[] = ["em_andamento", "aguardando", "nao_iniciada"];
+export const estaAtiva = (d: { situacao: Situacao }) => SITUACOES_ATIVAS.includes(d.situacao);
+
+/** Dias desde o último registro datado no histórico (null = nenhum registro). */
+export function diasParado(d: DemandaLinha): number | null {
+  const n = diasAte(d.ultima_atualizacao);
+  return n === null ? null : Math.max(0, -n);
+}
+
+/** Situação do MD agrupada para o painel (só faz sentido em serviço contratado). */
+export function grupoMD(d: DemandaLinha): "Emitido" | "Em elaboração" | "Não informado" | "Não necessário" {
+  if (d.md_situacao === "emitido") return "Emitido";
+  if (d.md_situacao === "nao_necessario") return "Não necessário";
+  if (d.md_situacao) return "Em elaboração";
+  return "Não informado";
+}
+export const grupoRMS = (d: DemandaLinha): "Com RMS" | "Sem RMS" => (d.rms_validas > 0 ? "Com RMS" : "Sem RMS");
+const semMD = (d: DemandaLinha) => d.forma_execucao === "contratada" && (grupoMD(d) === "Em elaboração" || grupoMD(d) === "Não informado");
+const semRMS = (d: DemandaLinha) => d.forma_execucao === "contratada" && d.rms_validas === 0;
+
+export type Marcador =
+  | "atrasada" | "vencendo" | "sem_atualizacao" | "etapa_vencida" | "aprovacao"
+  | "sem_md" | "sem_rms" | "sem_md_rms" | "impedimento" | "sem_avaliacao" | "acomp";
 
 export const MARCADORES: Record<Marcador, { nome: string; criterio: string }> = {
   atrasada: {
-    nome: "Atrasadas",
-    criterio: "Demanda aberta (não concluída nem cancelada) com prazo de conclusão anterior a hoje.",
+    nome: "Prazo de conclusão vencido",
+    criterio: "Demanda ativa (em andamento, aguardando ou não iniciada) com prazo de conclusão anterior a hoje.",
   },
   vencendo: {
     nome: `Vencendo em ${LIMITES.diasVencendo} dias`,
-    criterio: `Demanda aberta com prazo de conclusão ou prazo da próxima etapa entre hoje e os próximos ${LIMITES.diasVencendo} dias.`,
+    criterio: `Demanda ativa com prazo de conclusão ou da próxima etapa entre hoje e os próximos ${LIMITES.diasVencendo} dias.`,
   },
   sem_atualizacao: {
-    nome: `Sem atualização há +${LIMITES.diasSemAtualizacao} dias`,
-    criterio: `Demanda aberta cujo último registro no histórico tem mais de ${LIMITES.diasSemAtualizacao} dias.`,
+    nome: `Parados há +${LIMITES.diasSemAtualizacao} dias`,
+    criterio: `Demanda ativa cujo último registro no histórico tem mais de ${LIMITES.diasSemAtualizacao} dias, ou que não tem nenhum registro datado.`,
   },
-  sem_avaliacao: {
-    nome: "Sem avaliação de prioridade",
-    criterio: "Demanda aberta sem probabilidade e severidade preenchidas; por isso fica fora do ranking.",
+  etapa_vencida: {
+    nome: "Prazo da próxima etapa vencido",
+    criterio: "Demanda ativa com prazo da próxima etapa anterior a hoje.",
+  },
+  aprovacao: {
+    nome: "Aguardando aprovação",
+    criterio: "Demanda ativa na etapa Aprovação.",
+  },
+  sem_md: {
+    nome: "Contratadas sem MD emitido",
+    criterio: "Demanda ativa de serviço contratado com Memorial Descritivo a elaborar, em elaboração, em validação ou não informado.",
+  },
+  sem_rms: {
+    nome: "Contratadas sem RMS",
+    criterio: "Demanda ativa de serviço contratado sem nenhuma RMS válida (não cancelada).",
+  },
+  sem_md_rms: {
+    nome: "Contratadas sem MD e sem RMS",
+    criterio: "Demanda ativa de serviço contratado sem MD emitido e sem RMS válida.",
   },
   impedimento: {
     nome: "Com impedimento",
-    criterio: "Demanda com pendência/atividade aberta marcada como impedimento, ou ocorrência de impedimento em RDO dos últimos 30 dias.",
+    criterio: "Atividade/pendência aberta marcada como impedimento, ou ocorrência de impedimento em RDO dos últimos 30 dias.",
+  },
+  sem_avaliacao: {
+    nome: "Sem avaliação de prioridade",
+    criterio: "Demanda aberta (inclui suspensas) sem probabilidade e severidade; por isso fica fora do ranking.",
   },
   acomp: { nome: "Acompanhamento gerencial", criterio: "Demanda aberta marcada para acompanhamento gerencial." },
 };
 
 export function vencendo(d: DemandaLinha): boolean {
-  if (!estaAberta(d.situacao)) return false;
+  if (!estaAtiva(d)) return false;
   return [d.prazo_conclusao, d.prazo_proxima_etapa].some((p) => {
     const n = diasAte(p);
     return n !== null && n >= 0 && n <= LIMITES.diasVencendo;
@@ -89,20 +134,28 @@ export function vencendo(d: DemandaLinha): boolean {
 }
 
 export function temMarcador(d: DemandaLinha, m: Marcador, comImpedimento: Set<number>): boolean {
-  const aberta = estaAberta(d.situacao);
+  const ativa = estaAtiva(d);
+  const vencido = (p: string | null) => { const n = diasAte(p); return n !== null && n < 0; };
   switch (m) {
-    case "atrasada": return d.atrasada;
+    case "atrasada": return ativa && vencido(d.prazo_conclusao);
     case "vencendo": return vencendo(d);
-    case "sem_atualizacao": return aberta && (d.dias_sem_atualizacao ?? 0) > LIMITES.diasSemAtualizacao;
-    case "sem_avaliacao": return aberta && d.pontuacao === null;
+    case "sem_atualizacao": { const n = diasParado(d); return ativa && (n === null || n > LIMITES.diasSemAtualizacao); }
+    case "etapa_vencida": return ativa && vencido(d.prazo_proxima_etapa);
+    case "aprovacao": return ativa && d.etapa === "aprovacao";
+    case "sem_md": return ativa && semMD(d);
+    case "sem_rms": return ativa && semRMS(d);
+    case "sem_md_rms": return ativa && semMD(d) && semRMS(d);
     case "impedimento": return comImpedimento.has(d.id);
-    case "acomp": return aberta && d.acomp_gerencial;
+    case "sem_avaliacao": return estaAberta(d.situacao) && d.pontuacao === null;
+    case "acomp": return estaAberta(d.situacao) && d.acomp_gerencial;
   }
 }
 
 export interface Filtros {
   q: string;
-  situacao: string; // "abertas" | "todas" | lista separada por vírgula
+  // filtros por matriz MD × RMS do painel: "Emitido|Sem RMS"
+  doc: string;
+  situacao: string; // "abertas" | "ativas" | "todas" | lista separada por vírgula
   etapa: string;
   resp: string;
   forma: string;
@@ -113,7 +166,7 @@ export interface Filtros {
 }
 
 export const FILTROS_PADRAO: Filtros = {
-  q: "", situacao: "abertas", etapa: "", resp: "", forma: "", classe: "", local: "", empresa: "", marcador: "",
+  q: "", situacao: "abertas", etapa: "", resp: "", forma: "", classe: "", local: "", empresa: "", marcador: "", doc: "",
 };
 
 export function lerFiltros(p: URLSearchParams): Filtros {
@@ -137,7 +190,7 @@ const normalizar = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toL
 
 export function aplicarFiltros(lista: DemandaLinha[], f: Filtros, comImpedimento: Set<number>): DemandaLinha[] {
   const termo = normalizar(f.q.trim());
-  const sits = f.situacao === "abertas" || f.situacao === "todas" ? null : f.situacao.split(",");
+  const sits = f.situacao === "abertas" || f.situacao === "todas" ? null : f.situacao === "ativas" ? SITUACOES_ATIVAS : f.situacao.split(",");
   return lista.filter((d) => {
     if (f.situacao === "abertas" && !estaAberta(d.situacao)) return false;
     if (sits && !sits.includes(d.situacao)) return false;
@@ -148,6 +201,7 @@ export function aplicarFiltros(lista: DemandaLinha[], f: Filtros, comImpedimento
     if (f.local && String(d.local_id) !== f.local) return false;
     if (f.empresa && String(d.empresa_id) !== f.empresa) return false;
     if (f.marcador && !temMarcador(d, f.marcador as Marcador, comImpedimento)) return false;
+    if (f.doc) { const [md, rms] = f.doc.split("|"); if (!estaAtiva(d) || d.forma_execucao !== "contratada" || grupoMD(d) !== md || grupoRMS(d) !== rms) return false; }
     if (termo) {
       const alvo = normalizar([d.codigo, d.assunto, d.local_nome, d.responsavel_nome, d.md_codigo, d.os_numero, d.rms_numeros, d.empresa_nome, d.solicitante].filter(Boolean).join(" "));
       if (!termo.split(/\s+/).every((t) => alvo.includes(t))) return false;

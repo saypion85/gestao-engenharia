@@ -6,6 +6,9 @@ import { AuthProvider, useAuth } from "./lib/auth";
 import Layout from "./components/Layout";
 import { Carregando, Notificacoes } from "./components/ui";
 import Login from "./pages/Login";
+import { aplicarTema, temaSalvo } from "./lib/tema";
+
+aplicarTema(temaSalvo());
 
 const Painel = lazy(() => import("./pages/Painel"));
 const Demandas = lazy(() => import("./pages/Demandas"));
