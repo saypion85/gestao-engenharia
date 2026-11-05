@@ -596,6 +596,75 @@ details.dados summary { cursor: pointer; color: var(--texto-sutil); }
 details.cartao summary { cursor: pointer; }
 @media (max-width: 760px) { .gantt-linha { grid-template-columns: 150px 1fr; } .busca-curta { width: 100% !important; } }
 
+/* ---------- Reuniões, decisões e ata ---------- */
+.itens .item > select { width: auto; flex: none; min-height: 36px; padding: 5px 8px; align-self: center; }
+.badge-atencao { background: var(--trl-status-atencao-15); color: var(--trl-status-atencao); }
+.decisao-info { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin: 4px 0; }
+.resolver { margin: 6px 0; }
+.kpi-val-texto { font-size: 1.6rem; }
+.lista-reunioes { list-style: none; padding: 0; margin: 0; }
+.lista-reunioes li { border-bottom: 1px solid var(--trl-cinza-100); padding: 4px 0; }
+.reuniao-linha { display: grid; grid-template-columns: 96px 1fr auto; gap: 12px; align-items: center; padding: 8px 4px; color: var(--trl-texto); text-decoration: none !important; border-radius: 6px; }
+.reuniao-linha:hover { background: var(--trl-cinza-50); }
+.reuniao-data { display: flex; flex-direction: column; font-family: var(--trl-font-titulo); }
+.reuniao-corpo { display: flex; flex-direction: column; min-width: 0; }
+.ver-ata { display: inline-block; margin: 0 0 6px 112px; }
+.lista-decisoes { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.decisao { border: 1px solid var(--trl-cinza-200); border-left: 4px solid var(--trl-cinza-400); border-radius: var(--trl-radius); padding: 10px 12px; }
+.decisao.pendente { border-left-color: var(--trl-status-atencao); }
+.decisao.vencida { border-left-color: var(--trl-vermelho); }
+.decisao.tomada { border-left-color: var(--trl-texto); }
+.decisao p { margin: 4px 0; }
+.progresso-reuniao { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; background: var(--trl-branco); border-radius: var(--trl-radius); box-shadow: var(--trl-shadow); padding: 10px 16px; margin-bottom: 16px; font-size: 0.875rem; }
+.progresso-reuniao .barra-trilho { flex: 1; min-width: 120px; height: 10px; }
+.lista-sugestoes { list-style: none; padding: 0; margin: 0; }
+.lista-sugestoes li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--trl-cinza-100); }
+.chips-motivo { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.motivo { font-size: 0.7rem; border-radius: 999px; padding: 1px 8px; background: var(--trl-vermelho-15); color: var(--texto-alerta); font-weight: 600; white-space: nowrap; }
+.busca-pauta { margin-top: 12px; position: relative; max-width: 520px; }
+.resultados-busca { list-style: none; padding: 4px; margin: 4px 0 0; border: 1px solid var(--trl-cinza-200); border-radius: 6px; background: var(--trl-branco); }
+.resultados-busca li { padding: 4px 6px; }
+.item-pauta { border-left: 4px solid var(--trl-cinza-300); }
+.item-pauta.discutido { border-left-color: var(--trl-status-ok); }
+.item-pauta-topo { display: flex; gap: 12px; align-items: flex-start; }
+.item-num { font-family: var(--trl-font-titulo); font-size: 1.3rem; width: 30px; height: 30px; border-radius: 50%; background: var(--trl-texto); color: var(--trl-branco); display: flex; align-items: center; justify-content: center; flex: none; }
+.item-pauta-titulo { flex: 1; min-width: 0; }
+.item-pauta-titulo a { color: var(--trl-texto); font-weight: 600; font-size: 1.05rem; }
+.discutido-check { margin: 0; white-space: nowrap; font-weight: 600; }
+.item-pauta-acoes { flex: none; }
+.infos-compactas { margin: 10px 0; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.item-pauta-grade { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.item-pauta-grade h4 { font-family: var(--trl-font-titulo); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--texto-sutil); margin: 8px 0 4px; }
+.bloco-pauta + .bloco-pauta { margin-top: 6px; }
+.texto-auto { position: relative; }
+.estado-salvo { position: absolute; right: 8px; bottom: 6px; }
+.adicionar-botoes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.adicionar-form { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+.adicionar-form > input:first-child { flex: 1 1 260px; }
+.adicionar-form select, .adicionar-form input { width: auto; min-height: 38px !important; padding: 5px 8px !important; }
+.acoes-hoje { margin-top: 6px; }
+.ata-doc h2 { margin-top: 20px; border-bottom: 2px solid var(--trl-vermelho); padding-bottom: 4px; font-size: 1.05rem; }
+.ata-cabecalho { display: flex; gap: 16px; align-items: center; border-bottom: 1px solid var(--trl-cinza-200); padding-bottom: 12px; margin-bottom: 12px; }
+.ata-logo { height: 40px; }
+.ata-cabecalho h1 { margin: 0; }
+.ata-titulo { margin: 0; color: var(--texto-sutil); }
+.ata-infos { margin-bottom: 8px; }
+.ata-tabela { width: 100%; }
+.ata-tabela th { position: static; }
+.ata-lista { padding-left: 18px; }
+.ata-lista li { margin-bottom: 6px; }
+.ata-item { border-bottom: 1px solid var(--trl-cinza-100); padding: 6px 0; break-inside: avoid; }
+.ata-item h3 { font-size: 0.95rem; margin: 0; }
+.ata-item p { margin: 2px 0; }
+.ata-rodape { margin-top: 20px; border-top: 1px solid var(--trl-cinza-200); padding-top: 8px; }
+@media (max-width: 760px) {
+  .item-pauta-grade { grid-template-columns: minmax(0, 1fr); }
+  .item-pauta-topo { flex-wrap: wrap; }
+  .reuniao-linha { grid-template-columns: 1fr; gap: 4px; }
+  .ver-ata { margin-left: 4px; }
+  .lista-sugestoes li { flex-direction: column; align-items: flex-start; }
+}
+
 /* ---------- Celular / tablet ---------- */
 @media (max-width: 900px) {
   .grade-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -656,6 +725,9 @@ details.cartao summary { cursor: pointer; }
   .assinaturas { display: grid !important; grid-template-columns: 1fr 1fr; gap: 24mm; margin-top: 18mm; }
   .assinaturas div { border-top: 1px solid #000; padding-top: 4px; text-align: center; font-size: 10pt; }
   .rdo-cabecalho { border-bottom: 2px solid var(--trl-vermelho); padding-bottom: 8px; }
+  .ata-doc { border: 0; padding: 0; }
+  .ata-doc h2 { break-after: avoid; }
+  .ata-tabela tr { break-inside: avoid; }
   .aviso { border: 1px solid #ccc; }
   a { color: #000; }
 }

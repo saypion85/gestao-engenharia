@@ -67,6 +67,44 @@ Ciclo: Rascunho → Enviado → Revisado (sem/com ressalvas). Revisado = travado
 - O **Resumo** da demanda mostra os 3 últimos andamentos e o botão "Registrar andamento", que leva ao Histórico.
 - A antiga aba Comentários foi retirada. Comentários já existentes foram copiados para o histórico com autor e data originais; os marcados como importantes viraram "Decisão".
 
+## Reuniões
+
+Menu **Reuniões**, com três abas: Reuniões, Decisões e Plano de ação.
+
+**Decisões importantes** (registradas no Histórico da demanda ou na reunião)
+- **A tomar:** informe quem decide e o prazo para decidir. Fica pendente até alguém registrar o que foi decidido. Pode fazer isso qualquer Engenheiro ou o Gestor, no histórico, na aba Decisões ou durante a reunião.
+- **Tomada:** guarda o que foi decidido, quando e por quem.
+- As decisões registradas antes desta versão entraram como "tomadas".
+
+**Fluxo da reunião**
+1. **Nova reunião:** já vem com título, local, horário e participantes da última reunião.
+2. **Acompanhamento:** ações em aberto das reuniões anteriores (o responsável atualiza a situação ali mesmo) e decisões pendentes com prazo vencido.
+3. **Pauta por demanda:**
+   - O sistema sugere as demandas abertas com pontos de atenção, nesta ordem de peso: decisão a tomar, impedimento, prazo vencido, etapa vencida, aguardando aprovação, parada há mais de 30 dias, vencendo em 7 dias, acompanhamento gerencial.
+   - "Incluir as mais críticas" adiciona de uma vez as que têm impedimento, decisão a tomar ou prazo vencido. Também dá para buscar qualquer outra demanda.
+4. **Cartão da demanda:** traz situação, etapa, responsável, prazos, motivos de atenção, decisões a tomar, últimos andamentos e atividades em aberto. Durante a reunião:
+   - escreva **o que foi discutido** (salva sozinho);
+   - registre **decisões tomadas**, **decisões a tomar** e **ações** (o quê, quem e prazo);
+   - marque o item como discutido.
+5. **Assuntos gerais:** anotações e ações sem demanda.
+6. **Encerrar e gerar ata:**
+   - grava a ata definitiva;
+   - leva as anotações de cada demanda para o histórico dela ("Reunião de dd/mm/aaaa: …");
+   - trava a reunião. Só o Gestor reabre, e encerrar de novo não duplica as anotações.
+
+**Ata**
+- Conteúdo: plano de ação, decisões tomadas, decisões a tomar, pontos discutidos por demanda, assuntos gerais e acompanhamento das ações anteriores.
+- Formatos: impressão ou PDF em A4, e **texto pronto para e-mail ou Teams**.
+
+**Plano de ação**
+- Cada ação é uma atividade do tipo "Ação (reunião)".
+- Aparece na aba Atividades da demanda, na página Atividades e no Painel ("vencendo"), além da aba Plano de ação.
+
+**Permissões**
+- Gestor e Engenheiro preparam, conduzem e encerram.
+- Consulta acompanha.
+- A contratada não vê reuniões nem ações de assuntos gerais.
+
 ## Cronograma
 
 - **Na demanda (aba Cronograma):** "Criar cronograma" gera os itens com as etapas do fluxo da forma de execução. As datas já conhecidas entram como realizadas: data de recebimento e início/fim da execução. É possível incluir itens personalizados, como mobilização ou entrega de material.

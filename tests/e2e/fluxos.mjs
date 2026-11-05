@@ -179,6 +179,57 @@ await eng.goto(urlDemanda);
 await eng.locator(".demanda-cabecalho").waitFor();
 passo("cronograma: predecessoras propagam datas, dias corridos × úteis, folga, item personalizado e visão geral");
 
+// reunião: pauta, decisões, plano de ação e ata
+await eng.getByRole("link", { name: "Reuniões", exact: true }).click();
+await eng.getByRole("heading", { name: "Reuniões", exact: true }).waitFor();
+await eng.getByRole("button", { name: "+ Nova reunião" }).click();
+await eng.getByText("Sugestões de pauta").waitFor();
+await eng.getByPlaceholder("Digite código, assunto ou local…").fill("Recuperação de parede");
+await eng.locator(".resultados-busca").getByRole("button", { name: /Recuperação de parede/ }).click();
+const card = eng.locator(".item-pauta", { hasText: "Recuperação de parede" });
+await card.waitFor();
+await card.getByLabel(/Anotações sobre/).fill("Operação confirmou janela aos sábados; escoramento mantido.");
+await card.getByText("✓ salvo").waitFor({ timeout: 8000 });
+await card.getByRole("button", { name: "+ Decisão a tomar" }).click();
+await card.getByLabel("Texto da decisão").fill("Demolir e reconstruir a parede?");
+await card.getByLabel("Quem decide").fill("Gerência");
+await card.getByRole("button", { name: "Incluir" }).click();
+await card.locator(".bloco-pauta", { hasText: "Decisões a tomar" }).getByText("Demolir e reconstruir a parede?").waitFor();
+await card.getByRole("button", { name: "registrar decisão" }).click();
+await card.getByLabel("O que foi decidido").fill("Sim, reconstruir em alvenaria estrutural");
+await card.getByRole("button", { name: "Salvar decisão" }).click();
+await card.locator(".bloco-pauta", { hasText: "Decidido nesta reunião" }).getByText(/alvenaria estrutural/).waitFor();
+await card.getByRole("button", { name: "+ Ação" }).click();
+await card.getByLabel("Descrição da ação").fill("Contratar projeto estrutural da parede");
+await card.getByLabel("Responsável pela ação").selectOption({ label: "Luis Soares" });
+await card.getByLabel("Prazo da ação").fill("2026-11-20");
+await card.getByRole("button", { name: "Incluir" }).click();
+await card.locator(".acoes-hoje").getByText("Contratar projeto estrutural da parede").waitFor();
+await eng.getByLabel("Assuntos gerais").fill("Escala de férias de dezembro.");
+await eng.locator(".cartao", { hasText: "Assuntos gerais" }).getByText("✓ salvo").waitFor({ timeout: 8000 });
+await eng.screenshot({ path: `${OUT}/05e-reuniao.png`, fullPage: true });
+await eng.getByRole("button", { name: "Encerrar e gerar ata" }).first().click();
+await eng.getByRole("heading", { name: "Ata de reunião" }).waitFor();
+const doc = eng.locator(".ata-doc");
+await doc.locator("table", { hasText: "Contratar projeto estrutural da parede" }).getByText("Luis Soares").waitFor();
+await doc.getByText("20/11/2026").first().waitFor();
+await doc.getByText(/Demolir e reconstruir a parede\?/).waitFor();
+await doc.getByText(/janela aos sábados/).waitFor();
+await doc.getByText("Escala de férias de dezembro.").waitFor();
+await eng.screenshot({ path: `${OUT}/05f-ata.png`, fullPage: true });
+await eng.pdf({ path: `${OUT}/05g-ata.pdf`, format: "A4", printBackground: true });
+// ficou registrado na demanda e nos painéis da seção
+await eng.goto(urlDemanda + "?aba=historico");
+await eng.locator(".linha-tempo li", { hasText: "Reunião de" }).getByText(/janela aos sábados/).waitFor();
+await eng.locator(".linha-tempo li", { hasText: "Demolir e reconstruir" }).getByText("Decisão tomada").waitFor();
+await eng.goto(`${BASE}/reunioes?aba=acoes`);
+await eng.getByRole("cell", { name: "Contratar projeto estrutural da parede" }).waitFor();
+await eng.goto(`${BASE}/reunioes`);
+await eng.locator(".reuniao-linha").first().getByText("Realizada · ata gerada").waitFor();
+await eng.goto(urlDemanda);
+await eng.locator(".demanda-cabecalho").waitFor();
+passo("reunião: pauta, notas salvas sozinhas, decisão a tomar → tomada, plano de ação, ata (PDF) e registro na demanda");
+
 // atividades
 await eng.getByRole("tab", { name: "Atividades" }).click();
 await eng.getByRole("button", { name: "+ Novo item" }).click();

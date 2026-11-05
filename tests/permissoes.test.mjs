@@ -279,3 +279,47 @@ test("histórico: autor automático; edição só pelo autor ou Gestor; automát
   const virarAuto = await c.engenheiro.from("historico").update({ tipo: "sistema" }).eq("id", meu.id);
   assert.ok(virarAuto.error, "não transforma registro em automático");
 });
+
+test("reuniões: pauta, decisões, plano de ação, encerramento com ata e trava", async () => {
+  const { data: reu, error } = await c.engenheiro.from("reunioes").insert({ titulo: "Semanal teste", data: "2026-11-05" }).select().single();
+  assert.ifError(error);
+  assert.ifError((await c.engenheiro.from("reuniao_itens").insert({ reuniao_id: reu.id, demanda_id: demOutra, notas: "Aguardar janela da Operação." })).error);
+  // decisão a tomar e decisão resolvida na reunião
+  const { data: dec } = await c.engenheiro.from("historico").insert({ demanda_id: demOutra, texto: "Locar guindaste?", tipo: "decisao", decisao_status: "pendente", decisao_responsavel: "Gerência", decisao_prazo: "2026-11-10" }).select().single();
+  assert.equal(dec.decisao_status, "pendente");
+  const cons = await c.consulta.rpc("resolver_decisao", { p_id: dec.id, p_resultado: "Sim" });
+  assert.ok(cons.error, "consulta não registra decisão");
+  assert.ifError((await c.gestor.rpc("resolver_decisao", { p_id: dec.id, p_resultado: "Sim, 2 diárias", p_reuniao: reu.id })).error);
+  const { data: dec2 } = await c.gestor.from("historico").select("decisao_status, decisao_resultado, decidida_por_nome, reuniao_id").eq("id", dec.id).single();
+  assert.deepEqual(dec2, { decisao_status: "tomada", decisao_resultado: "Sim, 2 diárias", decidida_por_nome: "Gustavo Sipião", reuniao_id: reu.id });
+  // ações: com demanda e sem demanda (assuntos gerais)
+  assert.ifError((await c.engenheiro.from("atividades").insert({ demanda_id: demOutra, reuniao_id: reu.id, tipo: "acao", titulo: "Cotar guindaste", prazo: "2026-11-08" })).error);
+  const { data: geral, error: eg } = await c.engenheiro.from("atividades").insert({ demanda_id: null, reuniao_id: reu.id, tipo: "acao", titulo: "Revisar procedimento de PT" }).select().single();
+  assert.ifError(eg);
+  const semVinculo = await c.engenheiro.from("atividades").insert({ demanda_id: null, tipo: "acao", titulo: "solta" });
+  assert.ok(semVinculo.error, "ação precisa de demanda ou reunião");
+  const { data: lidaCons } = await c.consulta.from("atividades").select("id").eq("id", geral.id);
+  assert.equal(lidaCons.length, 1, "equipe interna vê ação de assuntos gerais");
+  const { data: lidaCtd } = await c.contratada.from("atividades").select("id").eq("id", geral.id);
+  assert.equal(lidaCtd.length, 0, "contratada não vê ação de assuntos gerais");
+  const { data: reuCtd } = await c.contratada.from("reunioes").select("id");
+  assert.equal(reuCtd.length, 0, "contratada não vê reuniões");
+  // encerrar: notas vão para o histórico, ata gravada, reunião travada
+  assert.ifError((await c.engenheiro.rpc("encerrar_reuniao", { p_id: reu.id, p_ata: { teste: true } })).error);
+  const { data: hs } = await c.engenheiro.from("historico").select("texto, autor_nome").eq("reuniao_id", reu.id).eq("tipo", "atualizacao");
+  assert.equal(hs.length, 1);
+  assert.match(hs[0].texto, /^Reunião de 05\/11\/2026: Aguardar janela/);
+  assert.equal(hs[0].autor_nome, "Luis Soares");
+  const travada = await c.engenheiro.from("reunioes").update({ titulo: "x" }).eq("id", reu.id);
+  assert.match(travada.error?.message ?? "", /encerrada/);
+  const itemDepois = await c.engenheiro.from("reuniao_itens").update({ notas: "x" }).eq("reuniao_id", reu.id);
+  assert.match(itemDepois.error?.message ?? "", /encerrada/);
+  const reabreEng = await c.engenheiro.rpc("reabrir_reuniao", { p_id: reu.id });
+  assert.ok(reabreEng.error, "só o Gestor reabre");
+  assert.ifError((await c.gestor.rpc("reabrir_reuniao", { p_id: reu.id })).error);
+  assert.ifError((await c.engenheiro.rpc("encerrar_reuniao", { p_id: reu.id, p_ata: { teste: 2 } })).error);
+  const { data: hs2 } = await c.engenheiro.from("historico").select("id").eq("reuniao_id", reu.id).eq("tipo", "atualizacao");
+  assert.equal(hs2.length, 1, "reencerrar não duplica as anotações no histórico");
+  const { data: final } = await c.engenheiro.from("reunioes").select("status, ata, encerrada_por_nome").eq("id", reu.id).single();
+  assert.deepEqual(final, { status: "realizada", ata: { teste: 2 }, encerrada_por_nome: "Luis Soares" });
+});

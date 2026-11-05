@@ -7,8 +7,9 @@ import { Aviso, Campo, Carregando, Modal, Vazio, notificar } from "../ui";
 
 export interface Atividade {
   id: number;
-  demanda_id: number;
-  tipo: "atividade" | "pendencia" | "entrega";
+  demanda_id: number | null;
+  reuniao_id?: number | null;
+  tipo: "atividade" | "pendencia" | "entrega" | "acao";
   titulo: string;
   responsavel_id: number | null;
   prazo: string | null;
@@ -17,10 +18,10 @@ export interface Atividade {
   impedimento_descricao: string | null;
   concluida_em: string | null;
   criado_em: string;
-  demandas?: { codigo: string; assunto: string };
+  demandas?: { codigo: string; assunto: string } | null;
 }
 
-export const TIPOS = { atividade: "Atividade", pendencia: "Pendência", entrega: "Entrega" };
+export const TIPOS = { atividade: "Atividade", pendencia: "Pendência", entrega: "Entrega", acao: "Ação (reunião)" };
 export const SITUACOES_ITEM = { a_fazer: "A fazer", em_andamento: "Em andamento", concluida: "Concluída", cancelada: "Cancelada" };
 
 export function PrazoItem({ a }: { a: Atividade }) {
@@ -30,7 +31,7 @@ export function PrazoItem({ a }: { a: Atividade }) {
   return <span className={aberta && n < 0 ? "texto-critico" : aberta && n <= 7 ? "texto-atencao" : "sutil"}>{fmtData(a.prazo)}{aberta && n < 0 ? ` · ${-n}d atraso` : aberta && n === 0 ? " · hoje" : ""}</span>;
 }
 
-export function ItemForm({ inicial, demandaId, aoFechar, aoSalvar }: { inicial?: Atividade; demandaId: number; aoFechar: () => void; aoSalvar: () => void }) {
+export function ItemForm({ inicial, demandaId, aoFechar, aoSalvar }: { inicial?: Atividade; demandaId: number | null; aoFechar: () => void; aoSalvar: () => void }) {
   const { cadastros } = useAuth();
   const [v, setV] = useState({
     tipo: inicial?.tipo ?? "atividade",
@@ -139,6 +140,7 @@ export function ListaItens({ itens, mostrarDemanda, aoMudar, podeEditar, aoEdita
               {mostrarDemanda && a.demandas && (
                 <Link to={`/demandas/${a.demanda_id}?aba=atividades`} className="pequeno">{a.demandas.codigo} · {a.demandas.assunto}</Link>
               )}
+              {mostrarDemanda && !a.demandas && a.reuniao_id && <Link to={`/reunioes/${a.reuniao_id}`} className="pequeno">Reunião · assuntos gerais</Link>}
               <div className="pequeno item-meta">
                 <PrazoItem a={a} />
                 {nome(a.responsavel_id) && <span>· {nome(a.responsavel_id)}</span>}

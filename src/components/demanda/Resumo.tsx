@@ -6,7 +6,7 @@ import { CATEGORIAS, ESFORCO, ETAPAS, FLUXO, FORMAS, MD_SITUACOES, diasAte, fmtD
 import type { DemandaLinha } from "../../lib/filtros";
 import DemandaForm, { CAMPOS_DEMANDA, type ValoresDemanda } from "../DemandaForm";
 import { notificar } from "../ui";
-import type { Registro } from "./HistoricoAba";
+import { DecisaoInfo, type Registro } from "./HistoricoAba";
 
 function Info({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   return <div className="info"><dt>{rotulo}</dt><dd>{children ?? "—"}</dd></div>;
@@ -48,7 +48,7 @@ function UltimosAndamentos({ demandaId, abrir }: { demandaId: number; abrir: () 
             <li key={r.id}>
               <span className="lt-data">{fmtData(r.data)}</span>
               <div>
-                {r.tipo === "decisao" && <span className="badge badge-critico">Decisão</span>}
+                <DecisaoInfo r={r} />
                 <p className="pre">{r.texto.length > 280 ? r.texto.slice(0, 278) + "…" : r.texto}</p>
                 <span className="sutil pequeno">{r.autor_nome}{r.editado_em ? " · editado" : ""}</span>
               </div>

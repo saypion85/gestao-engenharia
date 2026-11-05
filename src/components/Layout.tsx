@@ -19,6 +19,7 @@ export default function Layout() {
         { to: "/demandas", nome: "Demandas" },
         { to: "/atividades", nome: "Atividades" },
         { to: "/cronograma", nome: "Cronograma" },
+        { to: "/reunioes", nome: "Reuniões" },
         ...(eGestor ? [{ to: "/usuarios", nome: "Usuários" }, { to: "/cadastros", nome: "Cadastros" }] : []),
       ];
 

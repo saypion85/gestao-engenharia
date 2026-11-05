@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { supabase, mensagemErro } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
-import { ETAPAS, FLUXO, SITUACOES, fmtData, fmtDataHora, hojeISO, type Etapa, type Situacao } from "../../lib/dominio";
+import { ETAPAS, FLUXO, SITUACOES, diasAte, fmtData, fmtDataHora, hojeISO, type Etapa, type Situacao } from "../../lib/dominio";
 import type { DemandaLinha } from "../../lib/filtros";
 import { Ajuda, Aviso, Carregando, Vazio, notificar } from "../ui";
 
@@ -9,6 +10,53 @@ export interface Registro {
   id: number; data: string; texto: string; tipo: "atualizacao" | "decisao" | "sistema";
   autor_id: string | null; autor_nome: string | null; criado_em: string;
   editado_em: string | null; editado_por_nome: string | null;
+  decisao_status: "pendente" | "tomada" | null; decisao_responsavel: string | null; decisao_prazo: string | null;
+  decisao_resultado: string | null; decidida_em: string | null; decidida_por_nome: string | null; reuniao_id: number | null;
+}
+
+/** Selo e detalhes da decisão (a tomar / tomada). */
+export function DecisaoInfo({ r }: { r: Registro }) {
+  if (r.tipo !== "decisao") return null;
+  const n = r.decisao_prazo ? diasAte(r.decisao_prazo) : null;
+  if (r.decisao_status === "pendente") {
+    return (
+      <div className="decisao-info pendente">
+        <span className="badge badge-atencao">◐ Decisão a tomar</span>
+        <span className="pequeno">
+          {r.decisao_responsavel && <>Quem decide: <strong>{r.decisao_responsavel}</strong></>}
+          {r.decisao_prazo && <> · prazo {fmtData(r.decisao_prazo)}{n !== null && n < 0 && <strong className="texto-critico"> ({-n}d vencida)</strong>}</>}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="decisao-info tomada">
+      <span className="badge badge-critico">Decisão tomada</span>
+      {r.decisao_resultado && <span className="pequeno"><strong>Decidido:</strong> {r.decisao_resultado} <span className="sutil">({r.decidida_por_nome ?? ""}{r.decidida_em ? ` · ${fmtData(r.decidida_em)}` : ""})</span></span>}
+    </div>
+  );
+}
+
+/** Registrar que a decisão pendente foi tomada. */
+export function ResolverDecisao({ r, reuniaoId, aoMudar }: { r: Registro; reuniaoId?: number; aoMudar: () => void }) {
+  const [aberto, setAberto] = useState(false);
+  const [txt, setTxt] = useState("");
+  if (r.decisao_status !== "pendente") return null;
+  async function salvar() {
+    const { error } = await supabase.rpc("resolver_decisao", { p_id: r.id, p_resultado: txt, p_reuniao: reuniaoId ?? null });
+    if (error) return notificar(mensagemErro(error), "erro");
+    notificar("Decisão registrada.");
+    setAberto(false);
+    aoMudar();
+  }
+  if (!aberto) return <button className="btn-texto pequeno link-acao" onClick={() => setAberto(true)}>registrar decisão</button>;
+  return (
+    <div className="linha resolver">
+      <input value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="O que foi decidido?" aria-label="O que foi decidido" autoFocus />
+      <button className="btn" onClick={() => setAberto(false)}>Cancelar</button>
+      <button className="btn btn-primario" disabled={!txt.trim()} onClick={salvar}>Salvar decisão</button>
+    </div>
+  );
 }
 
 /** Formulário "Registrar andamento": texto + mudança opcional de situação, etapa e prazo, numa única ação. */
@@ -20,6 +68,9 @@ function RegistrarAndamento({ d, aoSalvar }: { d: DemandaLinha; aoSalvar: () => 
   const [etapa, setEtapa] = useState<Etapa>(d.etapa);
   const [prazo, setPrazo] = useState(d.prazo_proxima_etapa ?? "");
   const [decisao, setDecisao] = useState(false);
+  const [decPendente, setDecPendente] = useState(false);
+  const [quemDecide, setQuemDecide] = useState("");
+  const [prazoDecisao, setPrazoDecisao] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
@@ -32,7 +83,10 @@ function RegistrarAndamento({ d, aoSalvar }: { d: DemandaLinha; aoSalvar: () => 
     setSalvando(true);
     try {
       if (texto.trim()) {
-        const { error } = await supabase.from("historico").insert({ demanda_id: d.id, texto: texto.trim(), data, tipo: decisao ? "decisao" : "atualizacao" });
+        const { error } = await supabase.from("historico").insert({
+          demanda_id: d.id, texto: texto.trim(), data, tipo: decisao ? "decisao" : "atualizacao",
+          ...(decisao ? { decisao_status: decPendente ? "pendente" : "tomada", decisao_responsavel: decPendente ? quemDecide || null : null, decisao_prazo: decPendente ? prazoDecisao || null : null } : {}),
+        });
         if (error) throw error;
       }
       if (mudou) {
@@ -44,6 +98,7 @@ function RegistrarAndamento({ d, aoSalvar }: { d: DemandaLinha; aoSalvar: () => 
       }
       setTexto("");
       setDecisao(false);
+      setDecPendente(false); setQuemDecide(""); setPrazoDecisao("");
       setData(hojeISO());
       notificar("Andamento registrado.");
       aoSalvar();
@@ -88,9 +143,23 @@ function RegistrarAndamento({ d, aoSalvar }: { d: DemandaLinha; aoSalvar: () => 
         )}
       </div>
       <div className="linha linha-entre">
-        <label className="check-linha pequeno"><input type="checkbox" checked={decisao} onChange={(e) => setDecisao(e.target.checked)} /> Marcar como decisão importante</label>
+        <span className="linha">
+          <label className="check-linha pequeno"><input type="checkbox" checked={decisao} onChange={(e) => setDecisao(e.target.checked)} /> Marcar como decisão importante</label>
+          {decisao && (
+            <span className="segmentado pequeno">
+              <button type="button" className={!decPendente ? "ativo" : ""} aria-pressed={!decPendente} onClick={() => setDecPendente(false)}>Já tomada</button>
+              <button type="button" className={decPendente ? "ativo" : ""} aria-pressed={decPendente} onClick={() => setDecPendente(true)}>A tomar (pendente)</button>
+            </span>
+          )}
+        </span>
         <button className="btn btn-primario" disabled={salvando}>{salvando ? "Registrando…" : "Registrar"}</button>
       </div>
+      {decisao && decPendente && (
+        <div className="grade-2">
+          <label className="campo"><span className="campo-rotulo">Quem decide?</span><input value={quemDecide} onChange={(e) => setQuemDecide(e.target.value)} placeholder="Ex.: Gerência, Direx, Suprimentos" /></label>
+          <label className="campo"><span className="campo-rotulo">Decidir até</span><input type="date" value={prazoDecisao} onChange={(e) => setPrazoDecisao(e.target.value)} /></label>
+        </div>
+      )}
       {erro && <div className="erro-form" role="alert">{erro}</div>}
     </form>
   );
@@ -125,7 +194,6 @@ function ItemHistorico({ r, aoMudar }: { r: Registro; aoMudar: () => void }) {
     <li className={`lt-${r.tipo}`}>
       <div className="lt-data">{fmtData(r.data)}</div>
       <div className="lt-corpo">
-        {r.tipo === "decisao" && <span className="badge badge-critico">Decisão</span>}
         {r.tipo === "sistema" && <span className="badge">Automático</span>}
         {editando ? (
           <div className="form">
@@ -143,9 +211,12 @@ function ItemHistorico({ r, aoMudar }: { r: Registro; aoMudar: () => void }) {
             </div>
           </div>
         ) : <p className="pre">{r.texto}</p>}
+        <DecisaoInfo r={r} />
+        {podeEditar && <ResolverDecisao r={r} aoMudar={aoMudar} />}
         <div className="sutil pequeno">
           {r.autor_nome ?? "—"} · registrado em {fmtDataHora(r.criado_em)}
           {r.editado_em && <> · editado{r.editado_por_nome && r.editado_por_nome !== r.autor_nome ? ` por ${r.editado_por_nome}` : ""} em {fmtDataHora(r.editado_em)}</>}
+          {r.reuniao_id && <> · <Link to={`/reunioes/${r.reuniao_id}/ata`}>reunião (ata)</Link></>}
           {!editando && podeEditarEste && <> · <button className="btn-texto pequeno link-acao" onClick={() => setEditando(true)}>editar</button></>}
           {!editando && podeExcluir && <> · <button className="btn-texto pequeno link-acao" onClick={excluir}>excluir</button></>}
         </div>
@@ -158,7 +229,7 @@ export default function HistoricoAba({ d, recarregar }: { d: DemandaLinha; recar
   const { podeEditar } = useAuth();
   const [lista, setLista] = useState<Registro[] | null>(null);
   const [erro, setErro] = useState("");
-  const [filtro, setFiltro] = useState<"todos" | "sem_sistema" | "decisao">("sem_sistema");
+  const [filtro, setFiltro] = useState<"todos" | "sem_sistema" | "decisao" | "pendente">("sem_sistema");
 
   const carregar = useCallback(async () => {
     const { data, error } = await supabase.from("historico").select("*").eq("demanda_id", d.id)
@@ -170,7 +241,7 @@ export default function HistoricoAba({ d, recarregar }: { d: DemandaLinha; recar
 
   if (erro) return <Aviso tipo="critico">{erro}</Aviso>;
   if (!lista) return <Carregando />;
-  const visiveis = lista.filter((r) => filtro === "todos" || (filtro === "decisao" ? r.tipo === "decisao" : r.tipo !== "sistema"));
+  const visiveis = lista.filter((r) => filtro === "todos" || (filtro === "pendente" ? r.decisao_status === "pendente" : filtro === "decisao" ? r.tipo === "decisao" : r.tipo !== "sistema"));
 
   return (
     <section className="cartao">
@@ -181,6 +252,7 @@ export default function HistoricoAba({ d, recarregar }: { d: DemandaLinha; recar
         <select value={filtro} onChange={(e) => setFiltro(e.target.value as typeof filtro)} aria-label="Filtrar histórico">
           <option value="sem_sistema">Andamentos e decisões</option>
           <option value="decisao">Só decisões</option>
+          <option value="pendente">Só decisões a tomar</option>
           <option value="todos">Tudo (inclui mudanças automáticas)</option>
         </select>
       </div>
