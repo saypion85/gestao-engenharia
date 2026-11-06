@@ -282,24 +282,44 @@ await eng.getByRole("button", { name: "Salvar", exact: true }).click();
 await eng.getByText(/só restam 40/).waitFor();
 await eng.getByLabel("Quantidade medida de Alvenaria estrutural").fill("10");
 await eng.locator(".modal .resumo-numeros").getByText("R$ 5.520,00").waitFor(); // 3.420 + 2.100
-await eng.getByRole("button", { name: "Aprovar medição" }).click();
-await eng.getByText("Medição aprovada.").waitFor();
+assert.equal(await eng.getByRole("button", { name: "Aprovar medição" }).count(), 0, "engenheiro não aprova");
+await eng.getByRole("button", { name: "Enviar para aprovação do Gestor" }).click();
+await eng.getByText("Medição enviada para aprovação do Gestor.").waitFor();
+await eng.locator(".oc tbody tr").first().getByText("Aguardando aprovação do Gestor").waitFor();
+await eng.locator(".oc tbody tr").first().getByText("Minuta").waitFor();
+const urlMedicao = eng.url();
+passo("medição: OC com planilha, limite por item e envio para aprovação do Gestor (engenheiro não aprova)");
+
+// Gestor aprova; engenheiro registra o pagamento; boletim com elaborador e aprovador
+const { page: gesMed } = await sessao("gestor@teste.local");
+await gesMed.locator(".kpi").first().waitFor();
+await gesMed.goto(urlMedicao);
+await gesMed.getByText(/aguardando aprovação do Gestor:/).waitFor();
+await gesMed.getByRole("button", { name: /nº 1/ }).click();
+await gesMed.locator(".rastro").getByText("Luis Soares").waitFor();
+await gesMed.getByRole("button", { name: "Aprovar medição" }).click();
+await gesMed.getByText("Medição aprovada.").waitFor();
+await gesMed.locator(".oc tbody tr").first().getByText("Gustavo Sipião").waitFor();
+await gesMed.close();
+await eng.reload();
 await eng.locator(".oc tbody tr").first().getByRole("button", { name: "Abrir" }).click();
-await eng.getByPlaceholder("Nº da NF").fill("NF 7781");
+await eng.getByPlaceholder("Nº da NF").fill("7781");
 await eng.getByRole("button", { name: "Registrar pagamento" }).click();
 await eng.getByText("Pagamento registrado.").waitFor();
 await eng.locator(".oc tbody tr").first().getByText("Paga").waitFor();
 await eng.locator(".resumo-numeros").first().getByText("R$ 6.300,00").waitFor(); // saldo a medir
 await eng.screenshot({ path: `${OUT}/06b-medicao.png`, fullPage: true });
-await eng.locator(".oc tbody tr").first().getByRole("button", { name: "Abrir" }).click();
-const [boletim] = await Promise.all([eng.context().waitForEvent("page"), eng.getByRole("link", { name: "Boletim de medição (PDF)" }).click()]);
+const [boletim] = await Promise.all([eng.context().waitForEvent("page"), eng.locator(".oc tbody tr").first().getByRole("link", { name: "PDF" }).click()]);
 await boletim.getByRole("heading", { name: "Boletim de Medição nº 1" }).waitFor();
 await boletim.locator(".totais-boletim .destaque-linha").getByText("R$ 5.520,00").waitFor();
+await boletim.locator(".tabela-responsaveis").getByText("engenheiro@teste.local").waitFor();
+await boletim.locator(".tabela-responsaveis").getByText("gestor@teste.local").waitFor();
+await boletim.locator(".assinaturas-boletim").getByText("Gustavo Sipião").waitFor();
+assert.equal(await boletim.locator(".marca-minuta").count(), 0, "aprovada não sai como minuta");
 await boletim.screenshot({ path: `${OUT}/06c-boletim.png`, fullPage: true });
 await boletim.pdf({ path: `${OUT}/06d-boletim.pdf`, format: "A4", landscape: true, printBackground: true });
 await boletim.close();
-await eng.keyboard.press("Escape");
-passo("medição: OC com planilha, limite por item, aprovação, pagamento com NF, saldo e boletim em PDF");
+passo("medição: Gestor aprova (nome e login registrados), pagamento com NF e PDF para a contratada com elaborador e aprovador");
 
 // RDO equipe
 await eng.getByRole("tab", { name: "RDO" }).click();

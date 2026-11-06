@@ -36,6 +36,8 @@ export default function BoletimMedicao() {
   if (!dados) return <Carregando />;
   const { m, oc, itens, meds, mi, demanda } = dados;
   const linhas = linhasBoletim(m, itens, meds, mi);
+  const aprovada = m.status === "aprovada" || m.status === "paga";
+  const dt = (x?: string | null) => (x ? new Date(x).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—");
   const anteriores = meds.filter((x) => x.status !== "cancelada" && x.numero < m.numero).reduce((s, x) => s + x.valor, 0);
   const acumulado = anteriores + (m.status === "cancelada" ? 0 : m.valor);
 
@@ -45,13 +47,14 @@ export default function BoletimMedicao() {
         <Link to={`/demandas/${id}?aba=medicao`} className="voltar">← Voltar à medição</Link>
         <button className="btn btn-primario" onClick={() => window.print()}>Imprimir / PDF</button>
       </div>
-      {m.status === "em_elaboracao" && <Aviso tipo="atencao">Medição em elaboração: valores ainda podem mudar.</Aviso>}
-      <article className="cartao ata-doc">
+      {!aprovada && <Aviso tipo="atencao">Minuta: esta medição ainda não foi aprovada pelo Gestor. O boletim sai marcado como MINUTA e não deve ser enviado como definitivo.</Aviso>}
+      <article className={`cartao ata-doc${aprovada ? "" : " minuta"}`}>
+        {!aprovada && <div className="marca-minuta" aria-hidden>MINUTA — AGUARDANDO APROVAÇÃO</div>}
         <header className="ata-cabecalho">
           <img src="/logo-cor.svg" alt="Triunfo Logística" className="ata-logo" />
           <div>
             <h1>Boletim de Medição nº {m.numero}</h1>
-            <p className="ata-titulo">OC {oc.numero} · {STATUS_MEDICAO[m.status]}</p>
+            <p className="ata-titulo">OC {oc.numero} · {STATUS_MEDICAO[m.status]}{oc.fornecedor_nome ? ` · ${oc.fornecedor_nome}` : ""}</p>
           </div>
         </header>
         <dl className="infos ata-infos">
@@ -96,12 +99,22 @@ export default function BoletimMedicao() {
           </tbody>
         </table>
         {m.observacao && <p className="pequeno"><strong>Observação:</strong> {m.observacao}</p>}
-        {m.aprovada_por_nome && <p className="sutil pequeno">Aprovada por {m.aprovada_por_nome}{m.aprovada_em ? ` em ${new Date(m.aprovada_em).toLocaleString("pt-BR")}` : ""}.{m.status === "paga" ? ` Paga em ${fmtData(m.data_pagamento)}${m.nota_fiscal ? ` · NF ${m.nota_fiscal.replace(/^NF\s*/i, "")}` : ""}.` : ""}</p>}
+<h2>Responsáveis</h2>
+        <table className="tabela compacta ata-tabela tabela-responsaveis">
+          <thead><tr><th>Etapa</th><th>Nome</th><th>Login</th><th>Data e hora</th></tr></thead>
+          <tbody>
+            <tr><td>Medição elaborada por</td><td><strong>{m.elaborada_por_nome ?? "—"}</strong></td><td>{m.elaborada_por_email ?? "—"}</td><td>{dt(m.enviada_em)}</td></tr>
+            <tr><td>Aprovada pelo Gestor</td><td><strong>{m.aprovada_por_nome ?? "pendente"}</strong></td><td>{m.aprovada_por_email ?? "—"}</td><td>{dt(m.aprovada_em)}</td></tr>
+            {m.status === "paga" && <tr><td>Pagamento registrado</td><td>{m.pagamento_por_nome ?? "—"}</td><td>—</td><td>{fmtData(m.data_pagamento)}{m.nota_fiscal ? ` · NF ${m.nota_fiscal.replace(/^NF\s*/i, "")}` : ""}</td></tr>}
+          </tbody>
+        </table>
 
-        <div className="assinaturas-boletim">
-          <div><span>Fiscal — Triunfo Logística</span></div>
-          <div><span>Responsável — {oc.fornecedor_nome ?? "Fornecedor"}</span></div>
+        <div className="assinaturas-boletim tres">
+          <div><strong>{m.elaborada_por_nome ?? " "}</strong><span>Elaborado por — Triunfo Logística</span></div>
+          <div><strong>{m.aprovada_por_nome ?? " "}</strong><span>Aprovado por (Gestor) — Triunfo Logística</span></div>
+          <div><strong>&nbsp;</strong><span>De acordo — {oc.fornecedor_nome ?? "Contratada"}</span></div>
         </div>
+        <p className="sutil pequeno rodape-boletim">Documento gerado pelo Sistema de Gestão de Engenharia — Triunfo Logística em {new Date().toLocaleString("pt-BR")}.</p>
       </article>
     </div>
   );

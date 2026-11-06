@@ -336,8 +336,26 @@ test("medição: só Gestor e Engenheiro; limites da OC; aprovação trava; paga
   assert.equal(m1.numero, 1, "numeração automática");
   const estouro = await c.engenheiro.from("medicoes").insert({ oc_id: oc.id, valor_informado: 500 });
   assert.match(estouro.error?.message ?? "", /passaria o valor da OC/);
-  const { data: ap } = await c.engenheiro.from("medicoes").update({ status: "aprovada" }).eq("id", m1.id).select().single();
-  assert.equal(ap.aprovada_por_nome, "Luis Soares");
+  const pulo = await c.engenheiro.from("medicoes").update({ status: "aprovada" }).eq("id", m1.id);
+  assert.match(pulo.error?.message ?? "", /não permitida/, "não aprova sem passar pelo envio");
+  const { data: env } = await c.engenheiro.from("medicoes").update({ status: "aguardando_aprovacao" }).eq("id", m1.id).select().single();
+  assert.equal(env.elaborada_por_nome, "Luis Soares");
+  assert.equal(env.elaborada_por_email, "engenheiro@teste.local");
+  assert.ok(env.enviada_em);
+  const engAprova = await c.engenheiro.from("medicoes").update({ status: "aprovada" }).eq("id", m1.id);
+  assert.match(engAprova.error?.message ?? "", /Somente o Gestor/);
+  const travaEnvio = await c.engenheiro.from("medicoes").update({ valor_informado: 10 }).eq("id", m1.id);
+  assert.ok(travaEnvio.error, "conteúdo travado enquanto aguarda aprovação");
+  const semMotivo = await c.gestor.from("medicoes").update({ status: "em_elaboracao" }).eq("id", m1.id);
+  assert.match(semMotivo.error?.message ?? "", /motivo/);
+  const { data: dev } = await c.gestor.from("medicoes").update({ status: "em_elaboracao", devolucao_motivo: "Conferir período" }).eq("id", m1.id).select().single();
+  assert.equal(dev.devolvida_por_nome, "Gustavo Sipião");
+  await c.engenheiro.from("medicoes").update({ status: "aguardando_aprovacao" }).eq("id", m1.id);
+  const { data: ap } = await c.gestor.from("medicoes").update({ status: "aprovada" }).eq("id", m1.id).select().single();
+  assert.equal(ap.aprovada_por_nome, "Gustavo Sipião");
+  assert.equal(ap.aprovada_por_email, "gestor@teste.local");
+  assert.equal(ap.elaborada_por_nome, "Luis Soares", "mantém quem elaborou");
+  assert.equal(ap.devolucao_motivo, null);
   const mexe = await c.engenheiro.from("medicoes").update({ valor_informado: 10 }).eq("id", m1.id);
   assert.match(mexe.error?.message ?? "", /aprovada/);
   const { data: pg } = await c.gestor.from("medicoes").update({ status: "paga", nota_fiscal: "NF 123" }).eq("id", m1.id).select().single();
@@ -360,7 +378,7 @@ test("medição: só Gestor e Engenheiro; limites da OC; aprovação trava; paga
   assert.equal(Number(vm.valor), 600);
   const apaga = await c.engenheiro.from("oc_itens").delete().eq("id", it.id);
   assert.ok(apaga.error, "não apaga item já medido");
-  await c.engenheiro.from("medicoes").update({ status: "aprovada" }).eq("id", ma.id);
+  await c.engenheiro.from("medicoes").update({ status: "aguardando_aprovacao" }).eq("id", ma.id);
   const travado = await c.engenheiro.from("medicao_itens").update({ quantidade: 1 }).eq("medicao_id", ma.id);
   assert.match(travado.error?.message ?? "", /em elaboração/);
 

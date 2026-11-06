@@ -24,6 +24,18 @@ function Barra({ medido, pago, total }: { medido: number; pago: number; total: n
   );
 }
 
+/** Quem elaborou (enviou) e quem aprovou, com login e data. */
+export function Rastro({ m }: { m: Medicao }) {
+  const dt = (x?: string | null) => (x ? new Date(x).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "");
+  return (
+    <dl className="rastro">
+      <div><dt>Elaborada por</dt><dd>{m.elaborada_por_nome ? <>{m.elaborada_por_nome} <span className="sutil">({m.elaborada_por_email})</span> · {dt(m.enviada_em)}</> : <span className="sutil">ainda não enviada</span>}</dd></div>
+      <div><dt>Aprovada pelo Gestor</dt><dd>{m.aprovada_por_nome ? <>{m.aprovada_por_nome} {m.aprovada_por_email && <span className="sutil">({m.aprovada_por_email})</span>} · {dt(m.aprovada_em)}</> : <span className="sutil">pendente</span>}</dd></div>
+      {m.status === "paga" && <div><dt>Pagamento</dt><dd>{fmtData(m.data_pagamento)}{m.nota_fiscal ? ` · NF ${m.nota_fiscal.replace(/^NF\s*/i, "")}` : ""}{m.pagamento_por_nome ? ` · registrado por ${m.pagamento_por_nome}` : ""}</dd></div>}
+    </dl>
+  );
+}
+
 function FormOC({ demanda, inicial, aoFechar, aoSalvar }: { demanda: DemandaLinha; inicial?: OrdemCompra; aoFechar: () => void; aoSalvar: () => void }) {
   const { cadastros } = useAuth();
   const [v, setV] = useState({
@@ -138,7 +150,9 @@ function PlanilhaItens({ oc, dados, aoFechar, aoSalvar }: { oc: OrdemCompra; dad
 }
 
 function EditorMedicao({ demanda, oc, m, dados, aoFechar, aoSalvar }: { demanda: DemandaLinha; oc: OrdemCompra; m: MedV; dados: Dados; aoFechar: () => void; aoSalvar: () => void }) {
-  const { eGestor } = useAuth();
+  const { eGestor, perfil } = useAuth();
+  const [motivo, setMotivo] = useState("");
+  const [devolvendo, setDevolvendo] = useState(false);
   const itens = dados.itens.filter((i) => i.oc_id === oc.id);
   const medsOC = dados.medicoes.filter((x) => x.oc_id === oc.id);
   const editavel = m.status === "em_elaboracao";
@@ -186,7 +200,7 @@ function EditorMedicao({ demanda, oc, m, dados, aoFechar, aoSalvar }: { demanda:
         const r = await supabase.from("medicoes").update({ status: novoStatus, ...extra }).eq("id", m.id);
         if (r.error) throw r.error;
       }
-      notificar(novoStatus === "aprovada" ? "Medição aprovada." : novoStatus === "paga" ? "Pagamento registrado." : novoStatus === "em_elaboracao" ? "Medição reaberta para ajustes." : novoStatus === "cancelada" ? "Medição cancelada." : "Medição salva.");
+      notificar(novoStatus === "aguardando_aprovacao" ? "Medição enviada para aprovação do Gestor." : novoStatus === "aprovada" ? "Medição aprovada." : novoStatus === "paga" ? "Pagamento registrado." : novoStatus === "em_elaboracao" ? "Medição reaberta para ajustes." : novoStatus === "cancelada" ? "Medição cancelada." : "Medição salva.");
       aoSalvar();
       if (novoStatus) aoFechar();
     } catch (e) {
@@ -220,9 +234,11 @@ function EditorMedicao({ demanda, oc, m, dados, aoFechar, aoSalvar }: { demanda:
       <div className="form">
         <div className="linha linha-entre">
           <span className={`badge med-${m.status}`}>{STATUS_MEDICAO[m.status]}</span>
-          <Link to={`/demandas/${demanda.id}/medicao/${m.id}`} className="btn" target="_blank">Boletim de medição (PDF)</Link>
+          <Link to={`/demandas/${demanda.id}/medicao/${m.id}`} className="btn" target="_blank">{m.status === "aprovada" || m.status === "paga" ? "PDF para a contratada" : "Prévia do boletim (minuta)"}</Link>
         </div>
-        {m.aprovada_por_nome && <p className="sutil pequeno">Aprovada por {m.aprovada_por_nome}{m.aprovada_em ? ` em ${new Date(m.aprovada_em).toLocaleString("pt-BR")}` : ""}{m.pagamento_por_nome ? ` · pagamento registrado por ${m.pagamento_por_nome}` : ""}</p>}
+        <Rastro m={m} />
+        {m.status === "em_elaboracao" && m.devolucao_motivo && <Aviso tipo="atencao">Devolvida por {m.devolvida_por_nome ?? "Gestor"}{m.devolvida_em ? ` em ${new Date(m.devolvida_em).toLocaleString("pt-BR")}` : ""}: <strong>{m.devolucao_motivo}</strong></Aviso>}
+        {m.status === "aguardando_aprovacao" && !eGestor && <Aviso tipo="info">Enviada para aprovação. Só o Gestor pode aprovar ou devolver.</Aviso>}
         <div className="grade-3">
           <Campo rotulo="Período de"><input type="date" value={v.periodo_inicio} disabled={!editavel} onChange={(e) => setV({ ...v, periodo_inicio: e.target.value })} /></Campo>
           <Campo rotulo="até"><input type="date" value={v.periodo_fim} disabled={!editavel} onChange={(e) => setV({ ...v, periodo_fim: e.target.value })} /></Campo>
@@ -281,19 +297,41 @@ function EditorMedicao({ demanda, oc, m, dados, aoFechar, aoSalvar }: { demanda:
           </label>
         </div>
 
+        {devolvendo && (
+          <div className="linha devolucao">
+            <input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="O que precisa ser ajustado?" aria-label="Motivo da devolução" autoFocus />
+            <button className="btn" onClick={() => setDevolvendo(false)}>Cancelar</button>
+            <button className="btn btn-primario" disabled={!motivo.trim()} onClick={() => salvar("em_elaboracao", { devolucao_motivo: motivo.trim() })}>Devolver</button>
+          </div>
+        )}
         {erro && <div className="erro-form" role="alert">{erro}</div>}
         <div className="barra-acoes">
           {editavel && <button className="btn btn-perigo-link" onClick={excluir}>Excluir</button>}
           {m.status !== "cancelada" && m.status !== "paga" && <button className="btn btn-perigo-link" onClick={() => confirm("Cancelar esta medição? Ela deixa de contar no medido da OC.") && salvar("cancelada")}>Cancelar medição</button>}
-          {(m.status === "aprovada" || m.status === "cancelada") && <button className="btn" onClick={() => salvar("em_elaboracao")}>Voltar para elaboração</button>}
+          {(m.status === "cancelada" || (m.status === "aprovada" && eGestor)) && <button className="btn" onClick={() => salvar("em_elaboracao")}>Voltar para elaboração</button>}
+          {m.status === "aguardando_aprovacao" && !eGestor && m.elaborada_por === perfil?.id && <button className="btn" onClick={() => salvar("em_elaboracao")}>Retirar da aprovação</button>}
           {m.status === "paga" && eGestor && <button className="btn" onClick={() => confirm("Desfazer o registro de pagamento?") && salvar("aprovada", { data_pagamento: null, nota_fiscal: m.nota_fiscal })}>Desfazer pagamento</button>}
           <button className="btn" onClick={aoFechar}>Fechar</button>
           {editavel && <button className="btn" onClick={() => salvar()}>Salvar</button>}
-          {editavel && <button className="btn btn-primario" disabled={valorAtual <= 0 || saldoDepois < -0.005} onClick={() => salvar("aprovada")}>Aprovar medição</button>}
+          {editavel && <button className="btn btn-primario" disabled={valorAtual <= 0 || saldoDepois < -0.005} onClick={() => salvar("aguardando_aprovacao")}>Enviar para aprovação do Gestor</button>}
+          {m.status === "aguardando_aprovacao" && eGestor && !devolvendo && <button className="btn" onClick={() => setDevolvendo(true)}>Devolver para ajuste</button>}
+          {m.status === "aguardando_aprovacao" && eGestor && <button className="btn btn-primario" onClick={() => salvar("aprovada")}>Aprovar medição</button>}
           {m.status === "aprovada" && <button className="btn btn-primario" onClick={() => salvar("paga", { nota_fiscal: pag.nf || null, data_pagamento: pag.data || hojeISO() })}>Registrar pagamento</button>}
         </div>
       </div>
     </Modal>
+  );
+}
+
+function PendentesGestor({ medicoes, abrir }: { medicoes: MedV[]; abrir: (id: number) => void }) {
+  const { eGestor } = useAuth();
+  const pend = medicoes.filter((m) => m.status === "aguardando_aprovacao");
+  if (!pend.length) return null;
+  return (
+    <Aviso tipo="atencao">
+      {pend.length} medição(ões) aguardando aprovação do Gestor{eGestor ? ": " : "."}
+      {eGestor && pend.map((m) => <button key={m.id} className="btn-link" onClick={() => abrir(m.id)}>nº {m.numero} ({fmtMoeda(m.valor)})</button>)}
+    </Aviso>
   );
 }
 
@@ -359,6 +397,7 @@ export default function MedicaoAba({ d }: { d: DemandaLinha }) {
         {total > 0 && <><Barra medido={medido} pago={pago} total={total} /><div className="legenda"><span><i className="leg-medido" />Medido</span><span><i className="leg-pago" />Pago</span></div></>}
       </section>
 
+      <PendentesGestor medicoes={dados.medicoes} abrir={setAberta} />
       {dados.ocs.length === 0 && <Vazio titulo="Nenhuma Ordem de Compra cadastrada">Cadastre a OC emitida para o fornecedor para começar a medir.</Vazio>}
 
       {dados.ocs.map((oc) => {
@@ -387,7 +426,7 @@ export default function MedicaoAba({ d }: { d: DemandaLinha }) {
             {meds.length === 0 ? <p className="sutil">Nenhuma medição ainda.</p> : (
               <div className="tabela-rolagem">
                 <table className="tabela compacta">
-                  <thead><tr><th>Nº</th><th>Período</th><th>Entregas</th><th>Valor</th><th>Situação</th><th>NF / pagamento</th><th /></tr></thead>
+                  <thead><tr><th>Nº</th><th>Período</th><th>Entregas</th><th>Valor</th><th>Situação</th><th>Elaborada / aprovada</th><th>NF / pagamento</th><th /></tr></thead>
                   <tbody>{meds.map((m) => (
                     <tr key={m.id} className={m.status === "cancelada" ? "inativo" : ""}>
                       <td><strong>{m.numero}</strong></td>
@@ -395,8 +434,12 @@ export default function MedicaoAba({ d }: { d: DemandaLinha }) {
                       <td className="pequeno">{m.descricao?.slice(0, 80) ?? "—"}</td>
                       <td className="num"><strong>{fmtMoeda(valorMedicao(m, dados.itens.filter((i) => i.oc_id === oc.id), dados.medItens))}</strong></td>
                       <td><span className={`badge med-${m.status}`}>{STATUS_MEDICAO[m.status]}</span></td>
+                      <td className="pequeno">{m.elaborada_por_nome ?? "—"}{m.aprovada_por_nome ? <> / <strong>{m.aprovada_por_nome}</strong></> : ""}</td>
                       <td className="pequeno">{m.status === "paga" ? `${m.nota_fiscal ? `NF ${m.nota_fiscal.replace(/^NF\s*/i, "")} · ` : ""}${fmtData(m.data_pagamento)}` : "—"}</td>
-                      <td><button className="btn btn-link pequeno" onClick={() => setAberta(m.id)}>Abrir</button></td>
+                      <td className="acoes-medicao">
+                        <button className="btn btn-link pequeno" onClick={() => setAberta(m.id)}>Abrir</button>
+                        {m.status !== "cancelada" && <Link className="btn-chip" to={`/demandas/${d.id}/medicao/${m.id}`} target="_blank" title={m.status === "aprovada" || m.status === "paga" ? "Boletim para imprimir ou salvar em PDF e enviar à contratada" : "Prévia (minuta): ainda não aprovada pelo Gestor"}>{m.status === "aprovada" || m.status === "paga" ? "PDF" : "Minuta"}</Link>}
+                      </td>
                     </tr>
                   ))}</tbody>
                 </table>

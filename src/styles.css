@@ -697,6 +697,23 @@ details.cartao summary { cursor: pointer; }
 .assinaturas-boletim { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 64px; }
 .assinaturas-boletim div { border-top: 1px solid var(--trl-texto); padding-top: 4px; text-align: center; font-size: 0.8125rem; }
 
+/* ---------- Medição: aprovação e minuta ---------- */
+.med-aguardando_aprovacao { background: var(--trl-vermelho-15); color: var(--texto-alerta); }
+.rastro { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 16px; margin: 0; background: var(--trl-cinza-50); border-radius: 6px; padding: 8px 12px; }
+.rastro dt { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texto-sutil); font-weight: 600; }
+.rastro dd { margin: 0; font-size: 0.85rem; }
+.devolucao { background: var(--trl-status-atencao-15); padding: 8px; border-radius: 6px; }
+.acoes-medicao { white-space: nowrap; }
+.acoes-medicao .btn-chip { margin-left: 4px; text-decoration: none; }
+.ata-doc { position: relative; }
+.marca-minuta { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) rotate(-24deg); font-family: var(--trl-font-titulo); font-size: 3.2rem; font-weight: 700; color: var(--trl-vermelho); opacity: 0.12; white-space: nowrap; pointer-events: none; z-index: 0; }
+.tabela-responsaveis td, .tabela-responsaveis th { text-align: left !important; }
+.assinaturas-boletim.tres { grid-template-columns: repeat(3, 1fr); gap: 28px; }
+.assinaturas-boletim div { display: flex; flex-direction: column; gap: 2px; }
+.assinaturas-boletim strong { min-height: 1.2em; font-size: 0.85rem; }
+.rodape-boletim { margin-top: 18px; }
+@media (max-width: 760px) { .assinaturas-boletim.tres { grid-template-columns: 1fr; } }
+
 /* ---------- Celular / tablet ---------- */
 @media (max-width: 900px) {
   .grade-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -759,6 +776,7 @@ details.cartao summary { cursor: pointer; }
   .rdo-cabecalho { border-bottom: 2px solid var(--trl-vermelho); padding-bottom: 8px; }
   .ata-doc { border: 0; padding: 0; }
   @page boletim { size: A4 landscape; }
+  .marca-minuta { opacity: 0.16; }
   .boletim .tabela-boletim th, .boletim .tabela-boletim td { font-size: 8pt; padding: 3px 4px; }
   .ata-doc h2 { break-after: avoid; }
   .ata-tabela tr { break-inside: avoid; }

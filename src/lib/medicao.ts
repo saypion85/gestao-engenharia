@@ -1,10 +1,11 @@
 // Regras da medição: valor de cada medição, acumulados por item e saldo da Ordem de Compra.
 
-export type StatusMedicao = "em_elaboracao" | "aprovada" | "paga" | "cancelada";
+export type StatusMedicao = "em_elaboracao" | "aguardando_aprovacao" | "aprovada" | "paga" | "cancelada";
 
 export const STATUS_MEDICAO: Record<StatusMedicao, string> = {
   em_elaboracao: "Em elaboração",
-  aprovada: "Aprovada",
+  aguardando_aprovacao: "Aguardando aprovação do Gestor",
+  aprovada: "Aprovada pelo Gestor",
   paga: "Paga",
   cancelada: "Cancelada",
 };
@@ -19,6 +20,9 @@ export interface Medicao {
   id: number; oc_id: number; numero: number; periodo_inicio: string | null; periodo_fim: string | null; data_medicao: string;
   descricao: string | null; valor_informado: number | null; status: StatusMedicao; nota_fiscal: string | null; data_pagamento: string | null;
   observacao: string | null; aprovada_por_nome: string | null; aprovada_em: string | null; pagamento_por_nome: string | null; valor?: number;
+  elaborada_por?: string | null; elaborada_por_nome?: string | null; elaborada_por_email?: string | null; enviada_em?: string | null;
+  aprovada_por?: string | null; aprovada_por_email?: string | null;
+  devolucao_motivo?: string | null; devolvida_por_nome?: string | null; devolvida_em?: string | null;
 }
 export interface MedicaoItem { medicao_id: number; oc_item_id: number; quantidade: number }
 

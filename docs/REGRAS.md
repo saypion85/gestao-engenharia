@@ -75,12 +75,19 @@ Ciclo: Rascunho → Enviado → Revisado (sem/com ressalvas). Revisado = travado
 - **Medição:** numerada automaticamente por OC, com período, data, entregas realizadas e quantidade medida por item (ou valor).
   - Cada medição mostra o medido antes, o desta medição, o acumulado e o saldo, por item e no total.
   - **Limites:** a quantidade acumulada de um item não passa a contratada, e o valor acumulado não passa o valor da OC. Reativar uma medição cancelada segue a mesma regra.
-- **Ciclo:** Em elaboração → **Aprovada** (grava quem aprovou e quando; o conteúdo fica travado) → **Paga** (nota fiscal, data e quem registrou).
-  - Uma medição aprovada pode voltar para elaboração.
-  - O Gestor pode desfazer um pagamento.
+- **Ciclo com aprovação do Gestor:**
+  1. **Em elaboração:** o Engenheiro ou o Gestor monta a medição.
+  2. **Aguardando aprovação do Gestor:** ao clicar em "Enviar para aprovação", ficam gravados nome, login (e-mail) e data/hora de **quem elaborou**. O conteúdo fica travado.
+  3. **Aprovada pelo Gestor:** **só o Gestor** aprova. Ficam gravados nome, login e data/hora de **quem aprovou**. O Gestor também pode **devolver para ajuste** com motivo obrigatório; a medição volta para elaboração e o motivo aparece para quem elaborou. Quem enviou pode retirar a medição da aprovação antes de o Gestor agir.
+  4. **Paga:** nota fiscal, data e quem registrou. O Gestor pode desfazer o pagamento.
+  - Só o Gestor reabre uma medição já aprovada.
   - Cancelada: deixa de contar no medido.
 - **Totais da demanda:** valor contratado, medido, aprovado a pagar, pago e saldo a medir, com barra de % medido e % pago.
-- **Boletim de Medição:** página para imprimir ou salvar em PDF, com a planilha (contratado, anterior, nesta medição, acumulado e saldo), os totais e espaço para assinatura do fiscal Triunfo e do fornecedor.
+- **Boletim de Medição (PDF para a contratada):** botão "PDF" em cada medição da lista. O boletim traz:
+  - a planilha (contratado, anterior, nesta medição, acumulado e saldo) e os totais;
+  - o quadro **Responsáveis**, com nome, login e data/hora de quem elaborou, de quem aprovou (Gestor) e do pagamento;
+  - as assinaturas já com os nomes: Elaborado por, Aprovado por (Gestor) e "De acordo" da contratada.
+  - Enquanto a medição não estiver aprovada, o botão aparece como "Minuta" e o boletim sai com a marca **MINUTA — AGUARDANDO APROVAÇÃO**.
 - **Anexos:** NF, boletim assinado e fotos, ligados à medição.
 - **Custos (Gestor):** a aba Custos mostra o medido e o pago nas medições, com um botão para usar o valor pago como "realizado com terceiros".
 
