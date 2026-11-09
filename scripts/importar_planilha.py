@@ -455,6 +455,97 @@ def main(caminho: str, saida: str = "dados"):
     L.append("commit;")
     (out / "importacao.sql").write_text("\n".join(L) + "\n", encoding="utf-8")
 
+    # ------------------------------------------------------------ sincronização segura (idempotente)
+    # Funciona com o banco vazio ou já importado: cria o que falta, só preenche campos vazios,
+    # não apaga nem sobrescreve nada e pode ser executada mais de uma vez sem duplicar.
+    linha_de = {d["id"]: d["linha"] for d in demandas}
+    def vl(rows):
+        return ",\n".join("(" + ", ".join(r) + ")" for r in rows)
+    S = ["-- Sincronização da planilha gerada em " + dt.datetime.now().strftime("%d/%m/%Y %H:%M"),
+         "-- Segura para rodar com o banco vazio ou já importado: cria demandas que não existem, preenche apenas",
+         "-- campos vazios e acrescenta registros que faltam. Não apaga nem sobrescreve. Pode rodar mais de uma vez.",
+         "begin;",
+         "insert into pessoas (nome) values " + ", ".join(f"({q(p)})" for p in PESSOAS) + " on conflict (nome) do nothing;",
+         "insert into locais (nome) values " + ", ".join(f"({q(n)})" for n in locais) + " on conflict (nome) do nothing;",
+         "drop table if exists _p, _sinc;",
+         "create temp table _sinc (acao text, codigo text);",
+         "create temp table _p (l int primary key, assunto text, local text, resp text, solicitante text, recebida_em date, acomp boolean, forma forma_execucao, "
+         "situacao situacao_demanda, aguardando text, etapa etapa_demanda, detalhamento text, status_projeto text, prazo_prox date, prazo date, "
+         "inicio date, fim date, concluida_em date, md_sit situacao_md, md_cod text, os text, prio text);"]
+    S.append("insert into _p values\n" + vl([[str(d["linha"]), q(d["assunto"]), q(d["local"]), q(d["responsavel"]), q(d["solicitante"]), q(d["recebida_em"]),
+        q(d["acomp_gerencial"]), q(d["forma_execucao"]), q(d["situacao"]), q(d["aguardando_o_que"]), q(d["etapa"]), q(d["detalhamento"]),
+        q(d["status_projeto"]), q(d["prazo_proxima_etapa"]), q(d["prazo_conclusao"]), q(d["inicio"]), q(d["fim"]), q(d["concluida_em"]),
+        q(d["md_situacao"]), q(d["md_codigo"]), q(d["os_numero"]), q(d["prioridade_legada"])] for d in demandas]) + ";")
+    S.append("""-- 1) demandas que ainda não existem (mesma linha da planilha e mesmo assunto)
+with n as (
+  insert into demandas (assunto, local_id, responsavel_id, solicitante, recebida_em, acomp_gerencial, forma_execucao, situacao, aguardando_o_que,
+    etapa, detalhamento, status_projeto, prazo_proxima_etapa, prazo_conclusao, inicio, fim, concluida_em, md_situacao, md_codigo, os_numero,
+    prioridade_legada, importado_linha)
+  select p.assunto, (select id from locais where nome = p.local), (select id from pessoas where nome = p.resp), p.solicitante, p.recebida_em, p.acomp,
+    p.forma, p.situacao, p.aguardando, p.etapa, p.detalhamento, p.status_projeto, p.prazo_prox, p.prazo, p.inicio, p.fim, p.concluida_em,
+    p.md_sit, p.md_cod, p.os, p.prio, p.l
+  from _p p
+  where not exists (select 1 from demandas d where d.importado_linha = p.l and d.assunto = p.assunto)
+  order by p.l
+  returning codigo)
+insert into _sinc select 'demanda criada', codigo from n;
+
+-- ligação linha da planilha → demanda do sistema
+create temp table _m as select p.l, min(d.id) as id from _p p join demandas d on d.importado_linha = p.l and d.assunto = p.assunto group by p.l;
+
+-- 2) demandas que já existem: só preenche campos vazios
+with u as (
+  update demandas d set
+    local_id = coalesce(d.local_id, (select id from locais where nome = p.local)),
+    responsavel_id = coalesce(d.responsavel_id, (select id from pessoas where nome = p.resp)),
+    solicitante = coalesce(d.solicitante, p.solicitante), recebida_em = coalesce(d.recebida_em, p.recebida_em),
+    aguardando_o_que = case when d.situacao = 'aguardando' then coalesce(d.aguardando_o_que, p.aguardando) else d.aguardando_o_que end,
+    detalhamento = coalesce(d.detalhamento, p.detalhamento), status_projeto = coalesce(d.status_projeto, p.status_projeto),
+    prazo_proxima_etapa = coalesce(d.prazo_proxima_etapa, p.prazo_prox), prazo_conclusao = coalesce(d.prazo_conclusao, p.prazo),
+    inicio = coalesce(d.inicio, p.inicio), fim = coalesce(d.fim, p.fim), md_situacao = coalesce(d.md_situacao, p.md_sit),
+    md_codigo = coalesce(d.md_codigo, p.md_cod), os_numero = coalesce(d.os_numero, p.os), prioridade_legada = coalesce(d.prioridade_legada, p.prio)
+  from _p p join _m m on m.l = p.l
+  where d.id = m.id and (
+       (d.local_id is null and p.local is not null) or (d.responsavel_id is null and p.resp is not null)
+    or (d.solicitante is null and p.solicitante is not null) or (d.recebida_em is null and p.recebida_em is not null)
+    or (d.situacao = 'aguardando' and d.aguardando_o_que is null and p.aguardando is not null)
+    or (d.detalhamento is null and p.detalhamento is not null) or (d.status_projeto is null and p.status_projeto is not null)
+    or (d.prazo_proxima_etapa is null and p.prazo_prox is not null) or (d.prazo_conclusao is null and p.prazo is not null)
+    or (d.inicio is null and p.inicio is not null) or (d.fim is null and p.fim is not null)
+    or (d.md_situacao is null and p.md_sit is not null) or (d.md_codigo is null and p.md_cod is not null)
+    or (d.os_numero is null and p.os is not null) or (d.prioridade_legada is null and p.prio is not null))
+  returning d.codigo)
+insert into _sinc select 'campos vazios preenchidos', codigo from u;""")
+    S.append("-- 3) revisões de MD que faltam\ninsert into memoriais_revisoes (demanda_id, codigo, revisao) select m.id, v.codigo, v.rev from (values\n"
+             + vl([[str(linha_de[did]), q(cod), str(rev)] for did, cod, rev in mds]) + "\n) v(l, codigo, rev) join _m m on m.l = v.l on conflict do nothing;")
+    S.append("-- 4) RMS que faltam\ninsert into rms (demanda_id, numero, situacao, descricao) select m.id, v.numero, v.sit::situacao_rms, v.descr from (values\n"
+             + vl([[str(linha_de[did]), q(n), q(st), q(desc) if desc else "null::text"] for did, n, st, desc in rmss])
+             + "\n) v(l, numero, sit, descr) join _m m on m.l = v.l where not exists (select 1 from rms r where r.demanda_id = m.id and r.numero = v.numero);")
+    S.append("-- 5) pendências (Abrir RMS / Elaborar MD) só para demandas criadas agora\ninsert into atividades (demanda_id, tipo, titulo, responsavel_id) "
+             "select d.id, v.tipo::tipo_item, v.titulo, d.responsavel_id from (values\n"
+             + vl([[str(linha_de[did]), q(tipo), q(titulo)] for did, tipo, titulo in ativs])
+             + "\n) v(l, tipo, titulo) join _m m on m.l = v.l join demandas d on d.id = m.id where d.criado_em = now() "
+             "and not exists (select 1 from atividades a where a.demanda_id = d.id and a.titulo = v.titulo);")
+    S.append("-- 6) registros de histórico que faltam\nwith h as (insert into historico (demanda_id, data, texto, tipo, autor_nome) "
+             "select m.id, v.data::date, v.texto, v.tipo::tipo_historico, 'Importado da planilha' from (values\n"
+             + vl([[str(linha_de[did]), q(dd), q(texto), q(tipo)] for did, dd, texto, tipo in hist])
+             + "\n) v(l, data, texto, tipo) join _m m on m.l = v.l where not exists (select 1 from historico x where x.demanda_id = m.id and x.data = v.data::date and (x.texto = v.texto or (x.autor_nome = 'Importado da planilha' and x.tipo = v.tipo::tipo_historico))) "
+             "returning demanda_id)\ninsert into _sinc select 'histórico acrescentado', (select codigo from demandas where id = h.demanda_id) from h;")
+    cols = [k for k in ccampos if k != "demanda_id"]
+    tipos = {"orcado_externo": "numeric", "custo_terceirizados": "numeric", "custo_execucao_propria": "numeric", "custo_mo_propria": "numeric",
+             "descricao_custo": "text", "efetivo_descricao": "text", "observacao": "text"}
+    S.append("-- 7) custos: cria ou só preenche campos vazios\ninsert into demanda_custos (demanda_id, " + ", ".join(cols) + ") select m.id, "
+             + ", ".join(f"v.{k}::{tipos[k]}" for k in cols) + " from (values\n"
+             + vl([[str(linha_de[c["demanda_id"]])] + [q(c[k]) if c[k] is not None else f"null::{tipos[k]}" for k in cols] for c in custos])
+             + "\n) v(l, " + ", ".join(cols) + ") join _m m on m.l = v.l\non conflict (demanda_id) do update set "
+             + ", ".join(f"{k} = coalesce(demanda_custos.{k}, excluded.{k})" for k in cols) + ";")
+    S.append("commit;")
+    S.append("-- Resumo (aparece como resultado no SQL Editor)")
+    S.append("select acao as \"o que foi feito\", count(*) as quantidade, string_agg(distinct codigo, ', ') as demandas from _sinc group by acao "
+             "union all select 'demandas da planilha no sistema', (select count(*) from demandas where importado_linha is not null), null "
+             "order by 1;")
+    (out / "sincronizacao.sql").write_text("\n".join(S) + "\n", encoding="utf-8")
+
     # ------------------------------------------------------------ relatório
     rel = openpyxl.Workbook()
     r0 = rel.active
