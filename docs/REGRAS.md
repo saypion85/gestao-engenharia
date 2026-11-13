@@ -49,7 +49,7 @@ As regras abaixo foram validadas com o Gestor em 05/11/2026. Cada item indica a 
 
 ## RDO (✅ modelo aprovado)
 
-Seções: identificação · clima e condição da área · efetivo (próprio/terceiro) · equipamentos · atividades executadas · ocorrências (com marcação de impedimento) · segurança (DDS, PT, incidentes) · materiais recebidos · fotos · observações · **apontamentos da Contratante** (só em RDO de contratada, preenchido pela Triunfo).
+Seções: identificação (data com dia da semana) · clima e condição da área · efetivo (próprio/terceiro) · equipamentos · atividades executadas · ocorrências (com marcação de impedimento) e paralisações (motivo e horário) · segurança (DDS, PT, incidentes) · materiais recebidos · fotos · observações · **apontamentos da Contratante** (só em RDO de contratada, preenchido pela Triunfo).
 
 Ciclo: Rascunho → Enviado → Revisado (sem/com ressalvas). Revisado = travado (só o Gestor reabre). Imprime ou salva em PDF com campos de assinatura.
 
@@ -95,6 +95,27 @@ Ciclo: Rascunho → Enviado → Revisado (sem/com ressalvas). Revisado = travado
 
 - **Efetivo:** uma linha por pessoa, com Nome, Função e Vínculo (próprio/terceiro). O total é a contagem de linhas. RDOs antigos, lançados com quantidade, continuam somando corretamente.
 - **Segurança:** DDS realizado, PT emitida e **AST realizada** (Análise de Segurança da Tarefa), cada um com Sim/Não.
+- **Data:** o RDO (tela, lista e impressão) mostra o dia da semana junto da data.
+- **Clima:** Bom, Nublado, Chuvoso ou Impraticável, por turno (manhã e tarde).
+- **Ocorrências:** o campo cresce com o texto; nada fica escondido depois de finalizar nem na impressão.
+- **Paralisações (seção 6):** cada parada tem motivo, horário (das/às) e detalhe opcional. Motivos: Chuva / mau tempo · Área não liberada pela Operação · Falta de material · Falta ou quebra de equipamento · Segurança (PT, integração, condição insegura) · Falta de mão de obra · Projeto / definição técnica · Outros. O fim precisa ser depois do início; paralisação sem horário completo é aceita, mas não entra na soma de horas.
+
+## RDO — Resumo do período
+
+Botão **Resumo do período** na aba RDO da demanda. Considera só RDOs finalizados (enviados ou revisados) entre as datas escolhidas — rascunhos ficam de fora e são contados à parte.
+
+| Indicador | Critério |
+|---|---|
+| Horas paradas por motivo | Soma de (fim − início) das paralisações, agrupada por motivo; também mostra quantas vezes e em quantos dias |
+| Parado por mau tempo | Horas das paralisações com motivo "Chuva / mau tempo" |
+| Dias com chuva | Dias com manhã ou tarde Chuvoso/Impraticável |
+| % parado | Horas paradas ÷ jornada registrada (início/fim do trabalho dos RDOs) |
+| Homens-dia | Soma das pessoas do efetivo de cada RDO; média por dia e dia de pico |
+| Segurança | Dias com DDS/PT/AST = Sim sobre os dias em que o campo foi preenchido |
+
+Também lista ocorrências (com impedimento), incidentes, apontamentos da Contratante e atividades executadas, dia a dia. Imprime/gera PDF.
+
+**IA sem custo:** os destaques são montados pelo próprio sistema, só com o que foi registrado. O botão **Copiar para IA** copia os dados do período com as instruções do resumo; basta colar no Claude (claude.ai) para receber o texto redigido. Uma integração direta com IA dentro do sistema exige chave de API paga e só será feita com autorização.
 
 ## Reuniões
 

@@ -15,6 +15,7 @@ const Demandas = lazy(() => import("./pages/Demandas"));
 const DemandaNova = lazy(() => import("./pages/DemandaNova"));
 const DemandaDetalhe = lazy(() => import("./pages/DemandaDetalhe"));
 const RdoPagina = lazy(() => import("./pages/RdoPagina"));
+const RdoResumo = lazy(() => import("./pages/RdoResumo"));
 const Atividades = lazy(() => import("./pages/Atividades"));
 const Cronograma = lazy(() => import("./pages/Cronograma"));
 const Reunioes = lazy(() => import("./pages/Reunioes"));
@@ -49,6 +50,7 @@ function Rotas() {
           <Route path="demandas/nova" element={podeEditar ? <DemandaNova /> : <Navigate to="/demandas" />} />
           <Route path="demandas/:id" element={<DemandaDetalhe />} />
           <Route path="demandas/:id/rdo/:rdoId" element={<RdoPagina />} />
+          <Route path="demandas/:id/rdo-resumo" element={<RdoResumo />} />
           <Route path="demandas/:id/medicao/:medId" element={podeEditar ? <BoletimMedicao /> : <Navigate to="/demandas" />} />
           <Route path="atividades" element={eContratada ? <Navigate to="/demandas" /> : <Atividades />} />
           <Route path="cronograma" element={eContratada ? <Navigate to="/demandas" /> : <Cronograma />} />

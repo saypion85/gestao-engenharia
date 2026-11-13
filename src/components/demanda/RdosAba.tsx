@@ -5,12 +5,13 @@ import { useAuth } from "../../lib/auth";
 import { fmtData, hojeISO } from "../../lib/dominio";
 import type { DemandaLinha } from "../../lib/filtros";
 import { Aviso, Carregando, Vazio, notificar } from "../ui";
+import { diaSemana } from "../../lib/rdo";
 
 export const STATUS_RDO: Record<string, string> = {
   rascunho: "Rascunho", enviado: "Enviado", revisado_ok: "Revisado sem ressalvas", revisado_ressalvas: "Revisado com ressalvas",
 };
 
-interface RdoLinha { id: number; data: string; origem: string; status: string; empresa_id: number | null; atividades_executadas: string | null; ocorrencias: { impedimento?: boolean }[] }
+interface RdoLinha { id: number; data: string; origem: string; status: string; empresa_id: number | null; atividades_executadas: string | null; ocorrencias: { impedimento?: boolean }[]; paralisacoes: unknown[] | null }
 
 export default function RdosAba({ d }: { d: DemandaLinha }) {
   const { podeEditar, eContratada, cadastros } = useAuth();
@@ -19,7 +20,7 @@ export default function RdosAba({ d }: { d: DemandaLinha }) {
   const nav = useNavigate();
 
   useEffect(() => {
-    supabase.from("rdos").select("id, data, origem, status, empresa_id, atividades_executadas, ocorrencias").eq("demanda_id", d.id).order("data", { ascending: false })
+    supabase.from("rdos").select("id, data, origem, status, empresa_id, atividades_executadas, ocorrencias, paralisacoes").eq("demanda_id", d.id).order("data", { ascending: false })
       .then(({ data, error }) => (error ? setErro(mensagemErro(error)) : setLista(data as RdoLinha[])));
   }, [d.id]);
 
@@ -40,7 +41,10 @@ export default function RdosAba({ d }: { d: DemandaLinha }) {
     <section className="cartao">
       <div className="linha linha-entre">
         <h2>RDO — Relatório Diário de Obra</h2>
-        {(podeEditar || eContratada) && <button className="btn btn-primario" onClick={novo}>+ Novo RDO</button>}
+        <div className="linha">
+          {lista.length > 0 && <Link className="btn" to={`/demandas/${d.id}/rdo-resumo`}>Resumo do período</Link>}
+          {(podeEditar || eContratada) && <button className="btn btn-primario" onClick={novo}>+ Novo RDO</button>}
+        </div>
       </div>
       <p className="sutil pequeno">Preencha um RDO por dia de trabalho. RDO feito fora do sistema? Anexe na aba Documentos com o tipo “RDO (arquivo externo)”.</p>
       {lista.length === 0 && <Vazio titulo="Nenhum RDO registrado" />}
@@ -48,10 +52,11 @@ export default function RdosAba({ d }: { d: DemandaLinha }) {
         {lista.map((r) => (
           <li key={r.id}>
             <Link to={`/demandas/${d.id}/rdo/${r.id}`} className="rdo-item">
-              <strong>{fmtData(r.data)}</strong>
+              <strong>{fmtData(r.data)} <span className="sutil pequeno">{diaSemana(r.data, true)}</span></strong>
               <span className={`badge rdo-${r.status}`}>{STATUS_RDO[r.status]}</span>
               <span className="pequeno">{r.origem === "contratada" ? `Contratada${empresa(r.empresa_id) ? `: ${empresa(r.empresa_id)}` : ""}` : "Equipe Triunfo"}</span>
               {r.ocorrencias?.some((o) => o.impedimento) && <span className="pequeno texto-critico">▲ Impedimento</span>}
+              {(r.paralisacoes?.length ?? 0) > 0 && <span className="pequeno texto-atencao">⏸ Paralisação</span>}
               <span className="sutil pequeno rdo-resumo">{r.atividades_executadas?.slice(0, 120) ?? ""}</span>
             </Link>
           </li>

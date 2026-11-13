@@ -7,25 +7,20 @@ import { fmtData, fmtDataHora } from "../lib/dominio";
 import { Ajuda, Aviso, Campo, Carregando, notificar } from "../components/ui";
 import { STATUS_RDO } from "../components/demanda/RdosAba";
 import type { Documento } from "../components/demanda/DocumentosAba";
-
-/** Uma linha por pessoa. "quantidade" só existe em RDOs antigos (antes do campo Nome). */
-interface Efetivo { nome?: string; funcao: string; quantidade?: number; tipo: "proprio" | "terceiro" }
-interface Equip { descricao: string; quantidade: number }
-interface Ocorrencia { descricao: string; impedimento: boolean }
+import { CLIMA, MOTIVOS_PARALISACAO, dataComSemana, diaSemana, fmtHoras, horasParalisacao, linhasTexto, type Efetivo, type Equip, type Ocorrencia, type Paralisacao } from "../lib/rdo";
 
 interface Rdo {
   id: number; demanda_id: number; data: string; origem: "equipe" | "contratada"; empresa_id: number | null;
   horario_inicio: string | null; horario_fim: string | null; clima_manha: string | null; clima_tarde: string | null;
   area_praticavel: boolean | null; efetivo: Efetivo[]; equipamentos: Equip[]; atividades_executadas: string | null;
-  atividades_ids: number[]; ocorrencias: Ocorrencia[]; dds_realizado: boolean | null; pt_emitida: boolean | null; ast_realizada: boolean | null;
+  atividades_ids: number[]; ocorrencias: Ocorrencia[]; paralisacoes: Paralisacao[]; dds_realizado: boolean | null; pt_emitida: boolean | null; ast_realizada: boolean | null;
   incidentes: string | null; materiais_recebidos: string | null; observacoes_contratada: string | null;
   apontamentos_contratante: string | null; apontado_por_nome: string | null; apontado_em: string | null;
   status: string; revisado_por_nome: string | null; revisado_em: string | null; criado_por: string | null; criado_em: string;
 }
 
-const CLIMA = { bom: "Bom", chuvoso: "Chuvoso", impraticavel: "Impraticável" };
 const CAMPOS_CONTEUDO = ["data", "horario_inicio", "horario_fim", "clima_manha", "clima_tarde", "area_praticavel", "efetivo", "equipamentos",
-  "atividades_executadas", "atividades_ids", "ocorrencias", "dds_realizado", "pt_emitida", "ast_realizada", "incidentes", "materiais_recebidos", "observacoes_contratada"] as const;
+  "atividades_executadas", "atividades_ids", "ocorrencias", "paralisacoes", "dds_realizado", "pt_emitida", "ast_realizada", "incidentes", "materiais_recebidos", "observacoes_contratada"] as const;
 
 function SimNao({ valor, mudar, disabled }: { valor: boolean | null; mudar: (v: boolean | null) => void; disabled: boolean }) {
   return (
@@ -64,7 +59,7 @@ export default function RdoPagina() {
       supabase.from("atividades").select("id, titulo").eq("demanda_id", Number(id)).in("situacao", ["a_fazer", "em_andamento", "concluida"]).order("id"),
     ]);
     if (a.error || !a.data) return setErro(a.error ? mensagemErro(a.error) : "RDO não encontrado.");
-    setR(a.data as Rdo);
+    setR({ ...(a.data as Rdo), paralisacoes: (a.data as Rdo).paralisacoes ?? [] });
     setDemanda(b.data);
     setAtividades(c.data ?? []);
     setAlterado(false);
@@ -93,6 +88,12 @@ export default function RdoPagina() {
     if (Array.isArray(dados.efetivo)) dados.efetivo = (dados.efetivo as Efetivo[]).filter((e) => e.funcao.trim() || e.nome?.trim());
     if (Array.isArray(dados.equipamentos)) dados.equipamentos = (dados.equipamentos as Equip[]).filter((e) => e.descricao.trim());
     if (Array.isArray(dados.ocorrencias)) dados.ocorrencias = (dados.ocorrencias as Ocorrencia[]).filter((e) => e.descricao.trim());
+    if (Array.isArray(dados.paralisacoes)) {
+      const lista = (dados.paralisacoes as Paralisacao[]).filter((p) => p.motivo || p.descricao.trim() || p.inicio || p.fim);
+      if (lista.some((p) => !p.motivo)) { setSalvando(false); return notificar("Informe o motivo de cada paralisação.", "erro"); }
+      if (lista.some((p) => (p.inicio || p.fim) && horasParalisacao(p) === null)) { setSalvando(false); return notificar("Confira os horários das paralisações: o fim deve ser depois do início.", "erro"); }
+      dados.paralisacoes = lista;
+    }
     const { error } = await supabase.from("rdos").update(dados).eq("id", r.id);
     setSalvando(false);
     if (error) return notificar(mensagemErro(error), "erro");
@@ -135,12 +136,13 @@ export default function RdoPagina() {
     }
   }
 
-  const linhaLista = <T,>(campo: "efetivo" | "equipamentos" | "ocorrencias", i: number, p: Partial<T>) => {
+  type CampoLista = "efetivo" | "equipamentos" | "ocorrencias" | "paralisacoes";
+  const linhaLista = <T,>(campo: CampoLista, i: number, p: Partial<T>) => {
     const arr = [...(r[campo] as unknown as T[])];
     arr[i] = { ...arr[i], ...p };
     mudar({ [campo]: arr } as Partial<Rdo>);
   };
-  const remover = (campo: "efetivo" | "equipamentos" | "ocorrencias", i: number) =>
+  const remover = (campo: CampoLista, i: number) =>
     mudar({ [campo]: (r[campo] as unknown[]).filter((_, j) => j !== i) } as Partial<Rdo>);
 
   // cada linha é uma pessoa; RDOs antigos com "quantidade" continuam somando certo
@@ -159,6 +161,7 @@ export default function RdoPagina() {
         <div>
           <h1>RDO — Relatório Diário de Obra</h1>
           <p><strong>{demanda.codigo}</strong> · {demanda.assunto}{demanda.local_nome && ` · ${demanda.local_nome}`}</p>
+          <p className="rdo-data"><strong>Data:</strong> <span className="primeira-maiuscula">{dataComSemana(r.data)}</span></p>
           <div className="linha-badges">
             <span className={`badge rdo-${r.status}`}>{STATUS_RDO[r.status]}</span>
             <span className="badge">{r.origem === "contratada" ? `Preenchido pela contratada${empresaNome ? `: ${empresaNome}` : ""}` : "Preenchido pela equipe Triunfo"}</span>
@@ -173,7 +176,8 @@ export default function RdoPagina() {
       <section className="cartao">
         <h2>1. Identificação</h2>
         <div className="grade-3">
-          <Campo rotulo="Data"><input type="date" value={r.data} disabled={dis} onChange={(e) => mudar({ data: e.target.value })} /></Campo>
+          <Campo rotulo="Data"><input type="date" value={r.data} disabled={dis} onChange={(e) => mudar({ data: e.target.value })} />
+            <small className="sutil primeira-maiuscula" data-testid="dia-semana">{diaSemana(r.data)}</small></Campo>
           <Campo rotulo="Início do trabalho"><input type="time" value={r.horario_inicio?.slice(0, 5) ?? ""} disabled={dis} onChange={(e) => mudar({ horario_inicio: e.target.value || null })} /></Campo>
           <Campo rotulo="Fim do trabalho"><input type="time" value={r.horario_fim?.slice(0, 5) ?? ""} disabled={dis} onChange={(e) => mudar({ horario_fim: e.target.value || null })} /></Campo>
         </div>
@@ -233,7 +237,7 @@ export default function RdoPagina() {
 
       <section className="cartao">
         <h2>5. Atividades executadas no dia</h2>
-        <textarea rows={5} value={r.atividades_executadas ?? ""} disabled={dis} onChange={(e) => mudar({ atividades_executadas: e.target.value || null })}
+        <textarea rows={linhasTexto(r.atividades_executadas, 90, 5)} value={r.atividades_executadas ?? ""} disabled={dis} onChange={(e) => mudar({ atividades_executadas: e.target.value || null })}
           placeholder="Descreva o que foi executado hoje." aria-label="Atividades executadas" />
         {atividades.length > 0 && (
           <div className="campo">
@@ -249,17 +253,40 @@ export default function RdoPagina() {
       </section>
 
       <section className="cartao">
-        <h2>6. Ocorrências e interferências</h2>
+        <h2>6. Ocorrências, interferências e paralisações</h2>
         <p className="sutil pequeno">Ex.: área não liberada pela Operação, integração no DHO, falta de material, paralisação. Marque “Impedimento” quando travar o serviço — aparece no painel.</p>
         {r.ocorrencias.map((o, i) => (
           <div key={i} className="linha ocorrencia">
-            <input value={o.descricao} disabled={dis} onChange={(x) => linhaLista<Ocorrencia>("ocorrencias", i, { descricao: x.target.value })} aria-label="Ocorrência" />
+            <textarea rows={linhasTexto(o.descricao, 60)} value={o.descricao} disabled={dis} onChange={(x) => linhaLista<Ocorrencia>("ocorrencias", i, { descricao: x.target.value })} aria-label="Ocorrência" />
             <label className="check-linha pequeno"><input type="checkbox" checked={o.impedimento} disabled={dis} onChange={(x) => linhaLista<Ocorrencia>("ocorrencias", i, { impedimento: x.target.checked })} /> Impedimento</label>
             {!dis && <button type="button" className="btn-icone" onClick={() => remover("ocorrencias", i)} aria-label="Remover">✕</button>}
           </div>
         ))}
         {r.ocorrencias.length === 0 && dis && <p className="sutil">Nenhuma ocorrência.</p>}
         {!dis && <button type="button" className="btn btn-link" onClick={() => mudar({ ocorrencias: [...r.ocorrencias, { descricao: "", impedimento: false }] })}>+ Adicionar ocorrência</button>}
+
+        <h3 className="subtitulo">Paralisações <Ajuda>Registre cada parada do serviço com o motivo e o horário. Esses dados alimentam o Resumo do período (horas paradas por motivo, inclusive por mau tempo).</Ajuda></h3>
+        {r.paralisacoes.map((p, i) => {
+          const h = horasParalisacao(p);
+          return (
+            <div key={i} className="paralisacao">
+              <select value={p.motivo} disabled={dis} onChange={(x) => linhaLista<Paralisacao>("paralisacoes", i, { motivo: x.target.value })} aria-label="Motivo da paralisação">
+                <option value="">Motivo…</option>
+                {Object.entries(MOTIVOS_PARALISACAO).map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+              </select>
+              <label className="pequeno">das <input type="time" value={p.inicio} disabled={dis} onChange={(x) => linhaLista<Paralisacao>("paralisacoes", i, { inicio: x.target.value })} aria-label="Início da paralisação" /></label>
+              <label className="pequeno">às <input type="time" value={p.fim} disabled={dis} onChange={(x) => linhaLista<Paralisacao>("paralisacoes", i, { fim: x.target.value })} aria-label="Fim da paralisação" /></label>
+              <strong className="pequeno paralisacao-horas">{h !== null ? fmtHoras(h) : "—"}</strong>
+              <textarea rows={linhasTexto(p.descricao, 60)} value={p.descricao} disabled={dis} placeholder="Detalhe (opcional)" onChange={(x) => linhaLista<Paralisacao>("paralisacoes", i, { descricao: x.target.value })} aria-label="Detalhe da paralisação" />
+              {!dis && <button type="button" className="btn-icone" onClick={() => remover("paralisacoes", i)} aria-label="Remover paralisação">✕</button>}
+            </div>
+          );
+        })}
+        {r.paralisacoes.length === 0 && dis && <p className="sutil">Nenhuma paralisação.</p>}
+        {r.paralisacoes.length > 0 && (
+          <p className="pequeno">Total parado no dia: <strong>{fmtHoras(r.paralisacoes.reduce((s, p) => s + (horasParalisacao(p) ?? 0), 0))}</strong></p>
+        )}
+        {!dis && <button type="button" className="btn btn-link" onClick={() => mudar({ paralisacoes: [...r.paralisacoes, { motivo: "", inicio: "", fim: "", descricao: "" }] })}>+ Adicionar paralisação</button>}
       </section>
 
       <section className="cartao">
@@ -269,12 +296,12 @@ export default function RdoPagina() {
           <div className="campo"><span className="campo-rotulo">PT emitida?</span><SimNao valor={r.pt_emitida} disabled={dis} mudar={(v) => mudar({ pt_emitida: v })} /></div>
           <div className="campo"><span className="campo-rotulo">AST realizada? <Ajuda>Análise de Segurança da Tarefa feita antes do início dos serviços.</Ajuda></span><SimNao valor={r.ast_realizada} disabled={dis} mudar={(v) => mudar({ ast_realizada: v })} /></div>
         </div>
-        <Campo rotulo="Incidentes / quase acidentes"><textarea rows={2} value={r.incidentes ?? ""} disabled={dis} onChange={(e) => mudar({ incidentes: e.target.value || null })} placeholder="Deixe em branco se não houve." /></Campo>
+        <Campo rotulo="Incidentes / quase acidentes"><textarea rows={linhasTexto(r.incidentes, 90, 2)} value={r.incidentes ?? ""} disabled={dis} onChange={(e) => mudar({ incidentes: e.target.value || null })} placeholder="Deixe em branco se não houve." /></Campo>
       </section>
 
       <section className="cartao">
         <h2>8. Materiais recebidos <span className="sutil pequeno">(opcional)</span></h2>
-        <textarea rows={2} value={r.materiais_recebidos ?? ""} disabled={dis} onChange={(e) => mudar({ materiais_recebidos: e.target.value || null })} aria-label="Materiais recebidos" />
+        <textarea rows={linhasTexto(r.materiais_recebidos, 90, 2)} value={r.materiais_recebidos ?? ""} disabled={dis} onChange={(e) => mudar({ materiais_recebidos: e.target.value || null })} aria-label="Materiais recebidos" />
       </section>
 
       <section className="cartao">
@@ -299,14 +326,14 @@ export default function RdoPagina() {
 
       <section className="cartao">
         <h2>10. Observações {r.origem === "contratada" ? "da contratada" : "gerais"}</h2>
-        <textarea rows={3} value={r.observacoes_contratada ?? ""} disabled={dis} onChange={(e) => mudar({ observacoes_contratada: e.target.value || null })} aria-label="Observações" />
+        <textarea rows={linhasTexto(r.observacoes_contratada, 90, 3)} value={r.observacoes_contratada ?? ""} disabled={dis} onChange={(e) => mudar({ observacoes_contratada: e.target.value || null })} aria-label="Observações" />
       </section>
 
       {r.origem === "contratada" && (
         <section className="cartao destaque">
           <h2>11. Apontamentos da Contratante (Triunfo)</h2>
           {podeApontar ? (
-            <textarea rows={4} value={r.apontamentos_contratante ?? ""} onChange={(e) => mudar({ apontamentos_contratante: e.target.value || null })}
+            <textarea rows={linhasTexto(r.apontamentos_contratante, 90, 4)} value={r.apontamentos_contratante ?? ""} onChange={(e) => mudar({ apontamentos_contratante: e.target.value || null })}
               placeholder="Registre observações da fiscalização: não conformidades, pendências, orientações à contratada." aria-label="Apontamentos da Contratante" />
           ) : (
             <p className="pre">{r.apontamentos_contratante || <span className="sutil">Sem apontamentos.</span>}</p>
