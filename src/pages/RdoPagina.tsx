@@ -45,6 +45,8 @@ export default function RdoPagina() {
   const [salvando, setSalvando] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [alterado, setAlterado] = useState(false);
+  // banco ainda sem a atualização do RDO (paralisações e "nublado"): a tela continua funcionando sem esses campos
+  const [bancoNovo, setBancoNovo] = useState(true);
 
   const carregarFotos = useCallback(async () => {
     const { data } = await supabase.from("documentos").select("*").eq("rdo_id", Number(rdoId)).order("criado_em");
@@ -59,6 +61,7 @@ export default function RdoPagina() {
       supabase.from("atividades").select("id, titulo").eq("demanda_id", Number(id)).in("situacao", ["a_fazer", "em_andamento", "concluida"]).order("id"),
     ]);
     if (a.error || !a.data) return setErro(a.error ? mensagemErro(a.error) : "RDO não encontrado.");
+    setBancoNovo("paralisacoes" in a.data);
     setR({ ...(a.data as Rdo), paralisacoes: (a.data as Rdo).paralisacoes ?? [] });
     setDemanda(b.data);
     setAtividades(c.data ?? []);
@@ -83,6 +86,7 @@ export default function RdoPagina() {
     setSalvando(true);
     const dados: Record<string, unknown> = {};
     if (podeConteudo) CAMPOS_CONTEUDO.forEach((k) => (dados[k] = r[k]));
+    if (!bancoNovo) delete dados.paralisacoes;
     if (podeApontar) dados.apontamentos_contratante = r.apontamentos_contratante;
     if (novoStatus) dados.status = novoStatus;
     if (Array.isArray(dados.efetivo)) dados.efetivo = (dados.efetivo as Efetivo[]).filter((e) => e.funcao.trim() || e.nome?.trim());
@@ -190,7 +194,7 @@ export default function RdoPagina() {
             <Campo key={c} rotulo={c === "clima_manha" ? "Manhã" : "Tarde"}>
               <select value={r[c] ?? ""} disabled={dis} onChange={(e) => mudar({ [c]: e.target.value || null })}>
                 <option value="">—</option>
-                {Object.entries(CLIMA).map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+                {Object.entries(CLIMA).filter(([k]) => bancoNovo || k !== "nublado" || r[c] === k).map(([k, n]) => <option key={k} value={k}>{n}</option>)}
               </select>
             </Campo>
           ))}
@@ -265,6 +269,7 @@ export default function RdoPagina() {
         {r.ocorrencias.length === 0 && dis && <p className="sutil">Nenhuma ocorrência.</p>}
         {!dis && <button type="button" className="btn btn-link" onClick={() => mudar({ ocorrencias: [...r.ocorrencias, { descricao: "", impedimento: false }] })}>+ Adicionar ocorrência</button>}
 
+        {bancoNovo && <>
         <h3 className="subtitulo">Paralisações <Ajuda>Registre cada parada do serviço com o motivo e o horário. Esses dados alimentam o Resumo do período (horas paradas por motivo, inclusive por mau tempo).</Ajuda></h3>
         {r.paralisacoes.map((p, i) => {
           const h = horasParalisacao(p);
@@ -287,6 +292,7 @@ export default function RdoPagina() {
           <p className="pequeno">Total parado no dia: <strong>{fmtHoras(r.paralisacoes.reduce((s, p) => s + (horasParalisacao(p) ?? 0), 0))}</strong></p>
         )}
         {!dis && <button type="button" className="btn btn-link" onClick={() => mudar({ paralisacoes: [...r.paralisacoes, { motivo: "", inicio: "", fim: "", descricao: "" }] })}>+ Adicionar paralisação</button>}
+        </>}
       </section>
 
       <section className="cartao">

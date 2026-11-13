@@ -20,7 +20,7 @@ export default function RdosAba({ d }: { d: DemandaLinha }) {
   const nav = useNavigate();
 
   useEffect(() => {
-    supabase.from("rdos").select("id, data, origem, status, empresa_id, atividades_executadas, ocorrencias, paralisacoes").eq("demanda_id", d.id).order("data", { ascending: false })
+    supabase.from("rdos").select("*").eq("demanda_id", d.id).order("data", { ascending: false })
       .then(({ data, error }) => (error ? setErro(mensagemErro(error)) : setLista(data as RdoLinha[])));
   }, [d.id]);
 
